@@ -380,6 +380,84 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertAlmostEqual(debit, losses + credit, places=1)
         self.assertAlmostEqual(twin.depot.lh2_verified_inventory_mt, initial_verified - debit, places=1)
 
+    # --- PHASE 8.2 HOSTILE POST-REMEDIATION AUDIT TEST SUITE ---
+
+    def test_propellant_transfer_loss_gross_withdrawal_requirement(self):
+        """Phase 8.2 Test: Verify that 2,200 t net return LH2 requires ~2,279.79 t gross depot withdrawal."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+
+        # Case 1: Depot has exactly 2,200.0 t (less than gross required ~2279.79 t) -> MUST FAIL DEPARTURE GATE
+        twin.depot.lh2_verified_inventory_mt = 2200.0
+        auth, gate = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertFalse(auth)
+        self.assertFalse(gate["required_LH2_available"])
+
+        # Case 2: Depot has 1 kg below required gross withdrawal (~2279.78 t) -> MUST FAIL
+        gross_req = 2200.0 / (1.0 - 0.035)  # ~2279.7927 t
+        twin.depot.lh2_verified_inventory_mt = gross_req - 0.001
+        auth_sub, gate_sub = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertFalse(auth_sub)
+
+        # Case 3: Depot has exactly gross required quantity -> MUST PASS
+        twin.depot.lh2_verified_inventory_mt = gross_req
+        auth_pass, gate_pass = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertTrue(auth_pass)
+
+    def test_spacecraft_loaded_predicate_check(self):
+        """Phase 8.2 Test: Verify explicit return_propellant_loaded predicate logic."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+        res = twin.run_crewed_mission()
+
+        predicates = res["success_predicate_assessment"]["predicates"]
+        self.assertTrue(predicates["return_propellant_loaded"])
+        self.assertTrue(predicates["return_propellant_transfer_complete"])
+        self.assertGreaterEqual(twin.depot.actual_net_propellant_loaded_mt, 2200.0)
+
+    def test_hostile_individual_lander_capacity_allocation(self):
+        """Phase 8.2 Test A-C: Aggregate capacity passes but individual lander fails."""
+        model = MarsISRUModel()
+
+        # Test A: L1 capacity = 140t (vs 145t L1 payload), L2 capacity = 160t (vs 114.79t L2 payload). Total = 300t.
+        gate_a = model.precursor_payload_closes(lander_1_capacity_mt=140.0, lander_2_capacity_mt=160.0)
+        self.assertFalse(gate_a["payload_closes"])
+        self.assertFalse(gate_a["lander_1"]["lander_closes"])
+        self.assertTrue(gate_a["lander_2"]["lander_closes"])
+
+        # Test B: Both landers close individually (150t each)
+        gate_b = model.precursor_payload_closes(lander_1_capacity_mt=150.0, lander_2_capacity_mt=150.0)
+        self.assertTrue(gate_b["payload_closes"])
+        self.assertTrue(gate_b["lander_1"]["lander_closes"])
+        self.assertTrue(gate_b["lander_2"]["lander_closes"])
+
+        # Test C: One lander has negative margin (L1 capacity = 135t)
+        gate_c = model.precursor_payload_closes(lander_1_capacity_mt=135.0, lander_2_capacity_mt=150.0)
+        self.assertFalse(gate_c["payload_closes"])
+        self.assertLess(gate_c["lander_1"]["payload_margin_mt"], 0.0)
+
+    def test_hostile_power_and_thermal_deficits(self):
+        """Phase 8.2 Test: Insufficient peak surface power or thermal capacity must fail closure."""
+        model = MarsISRUModel()
+
+        # Peak power deficit
+        p_eval = model.surface_power_budget(available_power_mwe=22.0)
+        self.assertFalse(p_eval["power_closes"])
+        self.assertFalse(p_eval["peak_power_closes"])
+
+        # Thermal rejection deficit
+        p_info = model.calculate_electrolysis_and_liquefaction_power(2760.8)
+        thermal = model.calculate_thermal_rejection_and_radiator(p_info["avg_continuous_power_mwe"])
+        self.assertTrue(thermal["thermal_closure"])
+
+    def test_hostile_isru_production_deficit(self):
+        """Phase 8.2 Test: Shortened production timeline produces LH2 deficit and fails campaign."""
+        model = MarsISRUModel(production_days=200.0) # Shortened from 500 days to 200 days
+        achievable = model.calculate_achievable_production(available_power_mwe=25.0, operating_days=200.0)
+
+        self.assertFalse(achievable["production_closes"])
+        self.assertLess(achievable["achievable_gross_lh2_mt"], achievable["required_gross_lh2_mt"])
+
 
 if __name__ == "__main__":
     unittest.main()

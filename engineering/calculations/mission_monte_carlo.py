@@ -25,6 +25,7 @@ def run_monte_carlo_simulation(num_runs=10000):
 
     results = []
     success_count = 0
+    primary_failure_reasons = {}
     failure_reasons = {}
     variable_history = []
 
@@ -43,7 +44,8 @@ def run_monte_carlo_simulation(num_runs=10000):
         isru_avail = random.uniform(0.80, 1.00)                # 80% to 100% equipment availability
         downtime_days = random.uniform(0.0, 90.0)             # 0 to 90 days maintenance downtime
         num_landers = 2                                        # Multi-lander precursor architecture
-        capacity_per_lander = random.gauss(150.0, 5.0)        # ±5t lander capacity variation
+        lander_1_capacity = random.gauss(150.0, 5.0)           # Independent Lander 1 capacity variation
+        lander_2_capacity = random.gauss(150.0, 5.0)           # Independent Lander 2 capacity variation
 
         # Instantiate custom state
         state = SpacecraftState(
@@ -73,7 +75,8 @@ def run_monte_carlo_simulation(num_runs=10000):
             duration_days=effective_days,
             available_power_mwe=isru_power_mwe,
             number_of_landers=num_landers,
-            lander_capacity_mt=capacity_per_lander
+            lander_1_capacity_mt=lander_1_capacity,
+            lander_2_capacity_mt=lander_2_capacity
         )
 
         # Run Phase B (Crewed Mission)
@@ -85,21 +88,30 @@ def run_monte_carlo_simulation(num_runs=10000):
         if success:
             success_count += 1
         else:
+            primary_found = False
             for k, v in predicates.items():
                 if not v:
+                    # Count overlapping
                     failure_reasons[k] = failure_reasons.get(k, 0) + 1
+                    # Count primary
+                    if not primary_found:
+                        primary_failure_reasons[k] = primary_failure_reasons.get(k, 0) + 1
+                        primary_found = True
 
         run_record = {
             "run_id": i + 1,
-            "success": success,
+            "success": 1 if success else 0,
             "dry_mass_mt": round(dry_mass, 2),
             "lh2_mass_mt": round(lh2_mass, 2),
+            "lnh3_mass_mt": round(lnh3_mass, 2),
+            "nep_efficiency": round(nep_eff, 3),
             "ice_concentration": round(ice_conc, 3),
             "soec_efficiency": round(soec_eff, 3),
             "liquefaction_efficiency": round(liq_eff, 3),
             "isru_power_mwe": round(isru_power_mwe, 2),
             "isru_downtime_days": round(downtime_days, 1),
-            "capacity_per_lander_mt": round(capacity_per_lander, 2),
+            "lander_1_capacity_mt": round(lander_1_capacity, 2),
+            "lander_2_capacity_mt": round(lander_2_capacity, 2),
             "lh2_produced_mt": round(twin.depot.lh2_produced_mt, 1)
         }
         results.append(run_record)
@@ -107,32 +119,86 @@ def run_monte_carlo_simulation(num_runs=10000):
 
     success_rate = (success_count / num_runs) * 100.0
 
-    # Sensitivity ranking
-    success_runs = [r for r in variable_history if r["success"]]
-    fail_runs = [r for r in variable_history if not r["success"]]
+    # 95% Wilson Score Confidence Interval
+    z = 1.959964  # 95% confidence z-score
+    p_hat = success_count / num_runs
+    denom = 1.0 + (z**2) / num_runs
+    p_mid = (p_hat + (z**2) / (2.0 * num_runs)) / denom
+    p_bound = (z / denom) * math.sqrt((p_hat * (1.0 - p_hat) / num_runs) + ((z**2) / (4.0 * (num_runs**2))))
+    ci_lower_pct = max(0.0, (p_mid - p_bound) * 100.0)
+    ci_upper_pct = min(100.0, (p_mid + p_bound) * 100.0)
 
+    # Spearman Rank Correlation Sensitivity Analysis
+    def spearman_correlation(x_vals, y_vals):
+        n = len(x_vals)
+        if n == 0:
+            return 0.0
+
+        def get_ranks(vals):
+            sorted_indices = sorted(range(n), key=lambda idx: vals[idx])
+            ranks = [0.0] * n
+            i = 0
+            while i < n:
+                j = i
+                while j < n - 1 and vals[sorted_indices[j]] == vals[sorted_indices[j + 1]]:
+                    j += 1
+                avg_rank = (i + j) / 2.0 + 1.0
+                for k in range(i, j + 1):
+                    ranks[sorted_indices[k]] = avg_rank
+                i = j + 1
+            return ranks
+
+        rx = get_ranks(x_vals)
+        ry = get_ranks(y_vals)
+
+        mean_rx = sum(rx) / n
+        mean_ry = sum(ry) / n
+
+        num = sum((rx[k] - mean_rx) * (ry[k] - mean_ry) for k in range(n))
+        den = math.sqrt(sum((rx[k] - mean_rx)**2 for k in range(n)) * sum((ry[k] - mean_ry)**2 for k in range(n)))
+        return num / den if den > 0 else 0.0
+
+    y_success = [r["success"] for r in variable_history]
     sensitivities = []
-    if success_runs and fail_runs:
-        for param in ["isru_power_mwe", "isru_downtime_days", "soec_efficiency", "liquefaction_efficiency", "ice_concentration", "dry_mass_mt", "lh2_mass_mt", "capacity_per_lander_mt"]:
-            mean_succ = sum(r[param] for r in success_runs) / len(success_runs)
-            mean_fail = sum(r[param] for r in fail_runs) / len(fail_runs)
-            pct_delta = abs(mean_succ - mean_fail) / mean_succ * 100.0 if mean_succ > 0 else 0.0
-            sensitivities.append({
-                "parameter": param,
-                "impact_score_pct": round(pct_delta, 2),
-                "mean_success": round(mean_succ, 2),
-                "mean_fail": round(mean_fail, 2)
-            })
+    monitored_params = [
+        "isru_power_mwe",
+        "isru_downtime_days",
+        "soec_efficiency",
+        "liquefaction_efficiency",
+        "ice_concentration",
+        "dry_mass_mt",
+        "lh2_mass_mt",
+        "lnh3_mass_mt",
+        "nep_efficiency",
+        "lander_1_capacity_mt",
+        "lander_2_capacity_mt"
+    ]
 
-    sensitivities.sort(key=lambda x: x["impact_score_pct"], reverse=True)
+    for param in monitored_params:
+        x_vals = [r[param] for r in variable_history]
+        rho = spearman_correlation(x_vals, y_success)
+        sensitivities.append({
+            "parameter": param,
+            "spearman_rank_correlation": round(rho, 4),
+            "correlation_magnitude": round(abs(rho), 4)
+        })
+
+    sensitivities.sort(key=lambda item: item["correlation_magnitude"], reverse=True)
 
     summary = {
+        "random_seed": 42,
         "total_simulated_cases": num_runs,
         "successful_cases": success_count,
         "failed_cases": num_runs - success_count,
-        "success_rate_percent": round(success_rate, 2),
+        "estimated_success_probability_percent": round(success_rate, 2),
+        "confidence_interval_95_percent": {
+            "lower_bound_percent": round(ci_lower_pct, 2),
+            "upper_bound_percent": round(ci_upper_pct, 2),
+            "method": "Wilson Score Interval"
+        },
         "program_status": "ENGINEERINGALLY CONDITIONAL" if success_rate >= 80.0 else "PHYSICALLY INFEASIBLE",
-        "failure_reason_breakdown": failure_reasons,
+        "primary_failure_reason_counts": primary_failure_reasons,
+        "overlapping_predicate_failure_counts": failure_reasons,
         "parameter_sensitivity_ranking": sensitivities
     }
 
