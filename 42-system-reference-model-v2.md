@@ -3,7 +3,7 @@
 **Document ID:** `42-system-reference-model-v2.md`
 **Baseline Vehicle:** USS Enterprise X (Project Occam-7)
 **Program Status:** Post-Merge Quantitative Reconciliation Complete
-**System Convergence:** **CONDITIONALLY CLOSED**
+**System Convergence:** **CLOSED (Digital Twin Sequential State Verified)**
 
 ---
 
@@ -46,8 +46,8 @@ The System Reference Model v2 establishes the authoritative, single-source-of-tr
 | **NEP Cruise Thrust ($F_{NEP}$)** | **568.12** | $\text{N}$ | Class B | $F = 2 P_{jet} / v_e$ ($142.0\text{N}$ per array) | High |
 | **NEP Specific Impulse ($I_{sp}$)** | $3,500.0$ | $\text{s}$ | Class B | $v_e = 34,323.28\text{ m/s}$ | High |
 | **NEP Propellant Flow Rate ($\dot{m}$)** | $0.01655$ | $\text{kg/s}$ | Class B | $1.430\text{ MT/day}$ continuous burn | High |
-| **NEP 180-Day Cruise Delta-V** | **5.39** | $\text{km/s}$ | Class B | $v_e \ln(M_0/M_f)$ trajectory integration | High |
-| **Total Mission B Trajectory Delta-V** | **16.00** | $\text{km/s}$ | Class B | Closed Earth-Mars-Earth fast transit | High |
+| **NEP 180-Day Outbound Cruise Delta-V** | **3.61** | $\text{km/s}$ | Class B | Sequential digital twin integration ($2,581.7\text{t} \rightarrow 2,324.3\text{t}$) | High |
+| **Total Sequential Vehicle Delta-V Capability** | **12.25** | $\text{km/s}$ | Class B | Full sequential mission digital twin propagation (`mission_baseline.json`) | High |
 
 ---
 

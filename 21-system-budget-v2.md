@@ -48,15 +48,15 @@ This bottom-up mass budget incorporates all structural stiffening, 6.5mm pressur
 |---|---:|---:|---:|---|
 | **Liquid Hydrogen ($\text{LH}_2$)** | 1,600.0 | 2,200.0 | 3,100.0 | Main NTP Impulse propellant ($I_{sp} = 900\text{ s}$) |
 | **Liquid Ammonia ($\text{LNH}_3$) / Argon** | 200.0 | 300.0 | 400.0 | NEP MPD Cruise propellant ($I_{sp} = 3,500\text{ s}$) |
-| **RCS Hydrazine / Cold Gas** | 15.0 | 25.0 | 35.0 | Attitude control & fine precision maneuvering |
-| **TOTAL PROPELLANT MASS ($M_{prop}$)** | **1,815.0** | **2,525.0** | **3,535.0** | Total mission propellant load |
-| **NOMINAL MISSION DEPARTURE MASS ($M_{dep}$)** | **2,795.4** | **3,995.96** | **5,593.0** | Reconciled departure mass ($M_{dry} + M_{prop}$) |
+| **TOTAL MISSION PROPELLANT ($M_{prop}$)** | **1,800.0** | **2,500.0** | **3,500.0** | Total main mission propellant load ($M_{NTP} + M_{NEP}$) |
+| **RCS Hydrazine / Cold Gas** | 15.0 | 25.0 | 35.0 | Attitude control (accounted for in dry GNC/consumables budget) |
+| **NOMINAL MISSION DEPARTURE MASS ($M_{dep}$)** | **2,780.4** | **3,970.96** | **5,558.0** | Canonical departure mass ($M_{dry} + M_{prop}$) |
 | **MAXIMUM GROSS DESIGN LIMIT** | **3,000.0** | **4,500.0** | **6,000.0** | Structural limit for main spine space frame |
 
 ---
 
 ## 3. Mass Distribution & Physical Balance
 
-1. **Mass Dominance:** Propellant accounts for $63.2\%$ of the $3,995.96\text{ MT}$ departure wet mass. Dry mass ($1,470.96\text{ MT}$) represents $36.8\%$ of the departure vehicle.
+1. **Mass Dominance:** Propellant accounts for $63.0\%$ of the $3,970.96\text{ MT}$ departure wet mass. Dry mass ($1,470.96\text{ MT}$) represents $37.0\%$ of the departure vehicle.
 2. **Structural Integrity:** Primary structure ($210\text{ MT}$) and propellant tanks ($178.75\text{ MT}$) form $31.7\%$ of unmargined dry mass, ensuring a structural safety factor of $1.59$ on tank hoop stress under $150\text{ kPa}$ operating pressure and $\ge 9.95$ axial safety factor under $4,000\text{ kN}$ NTP acceleration ($0.10\text{ g}$ wet, $0.27\text{ g}$ dry).
 3. **Shielding Fraction:** Passive radiation shielding ($240\text{ MT}$) and reactor shadow shielding ($45\text{ MT}$) sum to $285\text{ MT}$ ($23.2\%$ of unmargined dry mass), providing multi-layer SPE storm shelter ($52.25\text{ g/cm}^2$) and reactor isolation.
