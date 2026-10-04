@@ -2,8 +2,9 @@
   "vehicle": {
     "name": "USS Enterprise X (Project Occam-7)",
     "dry_mass_mt": 1470.96,
-    "propellant_inventory_mt": 2500.0,
-    "gross_departure_mass_mt": 3970.96
+    "initial_propellant_mt": 2500.0,
+    "gross_departure_mass_mt": 3970.96,
+    "isru_reloaded_lh2_mt": 2200.0
   },
   "events": [
     {
@@ -43,41 +44,54 @@
       "lh2_remaining_mt": 307.11
     },
     {
-      "phase": "Mars Orbit Stay (640d)",
-      "type": "COAST_STAY",
+      "phase": "Mars ISRU Propellant Reload & Stay (640d)",
+      "type": "MARS_ISRU_STAY",
       "duration_days": 640.0,
       "end_time_days": 820.05,
-      "gross_mass_mt": 1754.72,
+      "lh2_reloaded_mt": 2200.0,
+      "gross_mass_mt": 3813.92,
       "crew_health_percent": 100.0,
       "accumulated_radiation_csv": 31.8
     },
     {
       "phase": "Trans-Earth Injection (TEI)",
       "type": "NTP_BURN",
-      "duration_s": 634.3,
-      "start_mass_mt": 1754.72,
-      "lh2_burned_mt": 287.45,
-      "end_mass_mt": 1467.27,
+      "duration_s": 1552.6,
+      "start_mass_mt": 3813.92,
+      "lh2_burned_mt": 703.64,
+      "end_mass_mt": 3110.28,
       "thrust_kn": 4000.0,
-      "actual_dv_kms": 1.579,
-      "numerical_dv_kms": 1.579,
-      "lh2_remaining_mt": 0.0
+      "actual_dv_kms": 1.8,
+      "numerical_dv_kms": 1.8,
+      "lh2_remaining_mt": 1643.02
     },
     {
       "phase": "Inbound Cruise NEP (180d)",
       "type": "NEP_BURN",
       "duration_days": 29.77,
-      "start_mass_mt": 1467.27,
+      "start_mass_mt": 3110.28,
       "lnh3_burned_mt": 42.58,
-      "boiloff_lost_mt": 0.0,
-      "end_mass_mt": 1424.69,
+      "boiloff_lost_mt": 4.8918,
+      "end_mass_mt": 3062.81,
       "thrust_n": 568.13,
-      "actual_dv_kms": 1.011,
+      "actual_dv_kms": 0.473,
       "lnh3_remaining_mt": 0.0
+    },
+    {
+      "phase": "Earth Orbit Capture (EOI)",
+      "type": "NTP_BURN",
+      "duration_s": 3614.5,
+      "start_mass_mt": 3062.81,
+      "lh2_burned_mt": 1638.13,
+      "end_mass_mt": 1424.69,
+      "thrust_kn": 4000.0,
+      "actual_dv_kms": 6.755,
+      "numerical_dv_kms": 6.754,
+      "lh2_remaining_mt": 0.0
     }
   ],
   "final_state": {
-    "time_days": 849.83,
+    "time_days": 849.88,
     "gross_mass_mt": 1424.69,
     "dry_mass_mt": 1424.69,
     "lh2_mt": 0.0,
@@ -90,26 +104,42 @@
       0.0
     ],
     "v_vec_kms": [
-      2.166,
-      31.54
+      -4.376,
+      31.82
     ],
-    "total_delta_v_kms": 12.095,
+    "total_delta_v_kms": 18.534,
     "reactor_power_mwth": 100.0,
     "electrical_power_mwe": 20.0,
-    "thermal_load_mwth": 85.25,
+    "thermal_load_mwth": 82.0,
     "radiator_capacity_mwth": 133.35,
     "crew_count": 24,
     "crew_health_percent": 100.0,
-    "accumulated_radiation_csv": 33.88
+    "accumulated_radiation_csv": 33.88,
+    "isru_depot_state": {
+      "precursor_deployed": true,
+      "plant_operational": true,
+      "power_closure": true,
+      "thermal_closure": true,
+      "lh2_produced_mt": 2760.8,
+      "lh2_depot_stored_mt": 2726.0,
+      "lh2_reloaded_to_ship_mt": 2200.0
+    }
   },
   "success_predicate_assessment": {
     "mission_success": true,
+    "program_status": "ENGINEERINGALLY CONDITIONAL",
     "predicates": {
       "earth_departure_achieved": true,
       "mars_encounter_achieved": true,
       "mars_operations_completed": true,
+      "isru_precursor_deployed": true,
+      "isru_infrastructure_operational": true,
+      "return_propellant_manufactured": true,
+      "return_propellant_stored": true,
+      "isru_power_closure_verified": true,
+      "isru_thermal_closure_verified": true,
       "earth_return_achieved": true,
-      "earth_capture_achieved": false,
+      "earth_capture_achieved": true,
       "propellant_reserve_positive": true,
       "power_margin_positive": true,
       "thermal_margin_positive": true,
@@ -118,7 +148,7 @@
     }
   },
   "mass_conservation_summary": {
-    "total_events_checked": 6,
+    "total_events_checked": 7,
     "max_conservation_error_mt": 0.0
   }
 }

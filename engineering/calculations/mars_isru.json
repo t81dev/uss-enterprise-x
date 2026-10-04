@@ -1,0 +1,225 @@
+{
+  "program_phase": "Phase 8 \u2014 Mars ISRU, Propellant Logistics & Mission Closure",
+  "isru_status": "ENGINEERINGALLY CONDITIONAL",
+  "propellant_accounting": {
+    "net_tei_lh2_mt": 2200.0,
+    "propellant_ascent_mt": 45.0,
+    "propellant_tcm_mt": 25.0,
+    "propellant_abort_reserve_mt": 50.0,
+    "net_required_total_mt": 2320.0,
+    "gross_lh2_production_mt": 2760.8,
+    "gross_o2_byproduct_mt": 21911.59,
+    "loss_breakdown_mt": {
+      "production_loss_mt": 46.4,
+      "storage_boiloff_mt": 34.8,
+      "transfer_loss_mt": 23.2,
+      "loading_flash_mt": 34.8,
+      "residuals_mt": 23.2,
+      "unusable_ullage_mt": 23.2,
+      "startup_purge_mt": 23.2,
+      "contingency_reserve_mt": 232.0
+    }
+  },
+  "feedstock_analysis": {
+    "glacial_ice": {
+      "pure_water_required_mt": 24672.39,
+      "raw_water_extracted_mt": 26500.96,
+      "regolith_excavated_mt": 53001.92,
+      "ice_concentration_percent": 50.0,
+      "kg_regolith_per_kg_lh2": 19.2
+    },
+    "hydrated_minerals": {
+      "raw_water_extracted_mt": 30840.49,
+      "regolith_excavated_mt": 616809.84,
+      "mineral_water_fraction_percent": 5.0,
+      "thermal_calcination_energy_mwh": 57054.91,
+      "kg_regolith_per_kg_lh2": 223.42,
+      "assessment": "INFERIOR (Requires 10x excavation and high thermal calcination energy)"
+    },
+    "atmospheric_co2_sabatier": {
+      "co2_processed_mt": 15068.04,
+      "methane_yield_mt": 5492.66,
+      "assessment": "COMPLEMENTARY (Useful for ascent rocket CH4/LOX, but does not eliminate H2 extraction)"
+    }
+  },
+  "power_and_energy_derivation": {
+    "specific_energy_kwh_per_kg_lh2": 76.42,
+    "breakdown_kwh_per_kg": {
+      "soec_electrolysis": 54.7,
+      "water_heating_melting": 0.65,
+      "water_purification": 0.3,
+      "gas_purification_compression": 1.4,
+      "mining_and_excavation": 1.8,
+      "liquefaction_and_ortho_para": 16.42,
+      "pumps_controls_auxiliary": 1.15
+    },
+    "total_campaign_energy_mwh": 210990.64,
+    "total_campaign_energy_gwh": 210.991,
+    "avg_continuous_power_mwe": 17.58,
+    "peak_power_mwe": 20.22
+  },
+  "mars_surface_power_budget": {
+    "itemized_power_budget": {
+      "Mining & Excavation": {
+        "avg_kw": 421.9,
+        "peak_kw": 615.3
+      },
+      "Hauling & Crushing": {
+        "avg_kw": 211.0,
+        "peak_kw": 351.6
+      },
+      "Water Extraction (Melting)": {
+        "avg_kw": 140.6,
+        "peak_kw": 211.0
+      },
+      "Water Purification": {
+        "avg_kw": 70.3,
+        "peak_kw": 105.5
+      },
+      "SOEC Electrolysis": {
+        "avg_kw": 12587.3,
+        "peak_kw": 14064.0
+      },
+      "Hydrogen Gas Compression": {
+        "avg_kw": 316.4,
+        "peak_kw": 439.5
+      },
+      "Liquefaction Plant": {
+        "avg_kw": 3779.7,
+        "peak_kw": 4395.0
+      },
+      "Cryogenic Storage & ZBO": {
+        "avg_kw": 175.8,
+        "peak_kw": 263.7
+      },
+      "Pumps & Controls": {
+        "avg_kw": 140.6,
+        "peak_kw": 211.0
+      },
+      "Habitat & Science": {
+        "avg_kw": 150.0,
+        "peak_kw": 250.0
+      },
+      "Unallocated Margin (15%)": {
+        "avg_kw": 2637.0,
+        "peak_kw": 3516.0
+      }
+    },
+    "total_surface_avg_mwe": 20.63,
+    "total_surface_peak_mwe": 24.42
+  },
+  "thermal_rejection_and_radiators": {
+    "reactor_thermal_output_mwth": 58.6,
+    "reactor_waste_heat_mwth": 41.02,
+    "isru_plant_waste_heat_mwth": 14.94,
+    "total_q_waste_mwth": 55.96,
+    "radiator_area_m2": {
+      "high_temp_reactor_rad_m2": 2703.2,
+      "low_temp_isru_rad_m2": 21334.5,
+      "total_radiator_area_m2": 24037.7
+    },
+    "radiator_mass_mt": 108.17
+  },
+  "production_rates_and_equipment": {
+    "campaign_duration_days": 500.0,
+    "production_rates": {
+      "lh2_produced_kg_day": 5521.6,
+      "lh2_produced_kg_hour": 230.07,
+      "water_extracted_mt_day": 53.0,
+      "water_extracted_kg_hour": 2208.4,
+      "regolith_excavated_mt_day": 106.0,
+      "regolith_excavated_kg_hour": 4416.8
+    },
+    "equipment_sizing_sanity_check": {
+      "excavator_fleet_size": 2,
+      "excavation_rate_per_robot_kg_hr": 2208.4,
+      "electrolyzer_stack_rating_mwe": 10.0,
+      "liquefier_capacity_kg_day": 6073.8
+    }
+  },
+  "isru_plant_mass_budget": {
+    "itemized_isru_mass_mt": {
+      "Autonomous Excavators (2x 2.5t)": 5.0,
+      "Autonomous Haulers & Conveyors": 4.5,
+      "Regolith Crushers & Feeders": 3.2,
+      "Water Extraction Melting Reactors": 6.8,
+      "Water Purification & Distillation": 2.5,
+      "SOEC Electrolyzer Stacks (10 MWe)": 12.0,
+      "Hydrogen Gas Purifiers & Compressors": 4.8,
+      "Claude Liquefaction Plant": 14.5,
+      "Cryocoolers & Reverse Brayton Units": 3.8,
+      "Surface LH2 Storage Tanks & MLI": 18.5,
+      "Fluid Transfer Plumbing & Couplers": 2.2,
+      "Surface Nuclear Reactor & sCO2 Brayton": 28.5,
+      "Thermal Radiator Array": 108.17,
+      "Structural Frames & Support Struts": 8.5,
+      "Avionics, Controls & Communications": 1.8,
+      "Spare Parts & Tooling": 6.0,
+      "Unallocated Contingency Reserve (20%)": 25.52
+    },
+    "total_isru_plant_dry_mass_mt": 256.29,
+    "precursor_lander_capacity_mt": 150.0,
+    "mass_margin_mt": -106.29
+  },
+  "architecture_trade_matrix": {
+    "Architecture_A": {
+      "name": "Crewed Enterprise Carries Onboard ISRU",
+      "isru_mass_mt": 256.29,
+      "crewed_vessel_landing_required": true,
+      "feasibility": "PHYSICALLY INFEASIBLE / ARCHITECTURE INVALID",
+      "key_blocker": "Enterprise X cannot land on Mars; crew cannot wait 500 days on surface for unproven ISRU to manufacture return propellant."
+    },
+    "Architecture_B": {
+      "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline)",
+      "isru_mass_mt": 256.29,
+      "crewed_vessel_landing_required": false,
+      "precursor_missions_required": 1,
+      "feasibility": "ENGINEERINGALLY CONDITIONAL",
+      "key_benefit": "Return propellant is 100% manufactured, stored, and verified BEFORE crew departs Earth. Zero crew mortality risk from ISRU failure."
+    },
+    "Architecture_C": {
+      "name": "Multi-Mission Precursor Depot Network",
+      "isru_mass_mt": 307.548,
+      "precursor_missions_required": 3,
+      "feasibility": "FEASIBLE BUT HIGH COST",
+      "key_benefit": "Redundant parallel production plants, higher resilience."
+    },
+    "Architecture_D": {
+      "name": "Zero-ISRU All-Earth Propellant Supply",
+      "isru_mass_mt": 0.0,
+      "earth_launches_required": 28,
+      "feasibility": "PHYSICALLY UNECONOMIC / HIGH BOILOFF RISK",
+      "key_blocker": "Requires 28 Super-Heavy launches and massive LEO orbital propellant depot storage."
+    },
+    "Architecture_E": {
+      "name": "Hybrid (Surface MAV CH4/LOX ISRU + Earth LH2 TEI)",
+      "isru_mass_mt": 28.0,
+      "feasibility": "CONDITIONALLY FEASIBLE",
+      "key_benefit": "Smaller ISRU plant, but requires carrying all TEI propellant from Earth."
+    }
+  },
+  "failure_and_abort_analysis": {
+    "electrolyzer_loss_50_percent": {
+      "failure": "50% Electrolyzer Cell Degradation",
+      "impact": "Production rate reduced to 2.2 t/day",
+      "time_to_complete_days": 1000.0,
+      "consequence": "Campaign duration extends to 1,000 days (requires 2 synodic stay cycles)."
+    },
+    "reactor_loss_25_percent": {
+      "failure": "Reactor Power Degradation to 11.25 MWe",
+      "impact": "ISRU plant operates at 75% capacity",
+      "time_to_complete_days": 665.0,
+      "consequence": "Production takes 665 days; fits within 640-day surface window with minor 25-day overrun."
+    },
+    "excavator_total_failure_1_unit": {
+      "failure": "Loss of 1 of 2 Excavator Units",
+      "impact": "Mining rate halved",
+      "mitigation": "Redundant excavator operates at 90% duty cycle, completing production in 600 days."
+    },
+    "precursor_isru_total_failure": {
+      "failure": "Precursor ISRU Plant Fails Before Crew Departure",
+      "impact": "0% Return Propellant Manufactured",
+      "action": "Crew Earth departure holds on Earth. Zero crew loss."
+    }
+  }
+}

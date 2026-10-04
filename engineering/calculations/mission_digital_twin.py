@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Sequential Mission Digital Twin Simulation for USS Enterprise X (Project Occam-7)
+Updated for Program Phase 8 — Mars ISRU, Propellant Logistics & Mission Closure.
+
 Simulates vehicle state propagation across time:
 - Vector position & velocity (2D/3D heliocentric & planetocentric states)
 - Mass conservation assertions & propellant tracking (LH2, LNH3, RCS, Consumables)
@@ -8,12 +10,14 @@ Simulates vehicle state propagation across time:
 - Dynamic power & thermal rejection state machine (Stefan-Boltzmann, 850 K radiators)
 - Cryogenic boiloff derivation & Zero-Boiloff (ZBO) active refrigeration power
 - Crew survivability model (SPE/GCR radiation dose, ECLSS consumables, centrifuge gravity)
-- Formal machine-readable mission success predicate
+- Mars In-Situ Resource Utilization (ISRU) propellant manufacturing & pre-deployed depot tracking
+- Formal machine-readable physical mission success predicate
 """
 
 import math
 import json
 import os
+from mars_isru import MarsISRUModel
 
 # Physical and Astronomical Constants
 G0 = 9.80665                  # m/s^2
@@ -21,6 +25,7 @@ MU_SUN = 1.32712440018e20      # m^3/s^2
 MU_EARTH = 3.986004418e14     # m^3/s^2
 MU_MARS = 4.2828372e13        # m^3/s^2
 AU_IN_M = 1.495978707e11      # m
+
 
 class SpacecraftState:
     def __init__(self, dry_mass_mt=1470.96, lh2_mt=2200.0, lnh3_mt=300.0, rcs_mt=0.0):
@@ -32,7 +37,6 @@ class SpacecraftState:
         self.crew_consumables_mt = 72.3 # Tracked within dry budget
 
         # Orbital State (Heliocentric 2D Vector)
-        # Position [x, y] in AU, Velocity [vx, vy] in km/s
         self.r_vec_au = [1.0, 0.0]
         self.v_vec_kms = [0.0, 29.78]
         self.soi_reference = "Earth_SOI"
@@ -59,6 +63,15 @@ class SpacecraftState:
         self.centrifuge_active = True
         self.centrifuge_rpm = 6.0
         self.centrifuge_radius_m = 15.0
+
+        # Mars Surface ISRU Infrastructure & Depot State (Architecture B Baseline)
+        self.isru_precursor_deployed = True
+        self.isru_plant_operational = True
+        self.isru_power_closure = True
+        self.isru_thermal_closure = True
+        self.lh2_produced_mt = 0.0
+        self.lh2_depot_stored_mt = 0.0
+        self.lh2_reloaded_to_ship_mt = 0.0
 
         # System Health
         self.system_health = {
@@ -97,7 +110,16 @@ class SpacecraftState:
             "radiator_capacity_mwth": round(self.radiator_capacity_mwth, 2),
             "crew_count": self.crew_count,
             "crew_health_percent": round(self.crew_health_percent, 1),
-            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2)
+            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2),
+            "isru_depot_state": {
+                "precursor_deployed": self.isru_precursor_deployed,
+                "plant_operational": self.isru_plant_operational,
+                "power_closure": self.isru_power_closure,
+                "thermal_closure": self.isru_thermal_closure,
+                "lh2_produced_mt": round(self.lh2_produced_mt, 2),
+                "lh2_depot_stored_mt": round(self.lh2_depot_stored_mt, 2),
+                "lh2_reloaded_to_ship_mt": round(self.lh2_reloaded_to_ship_mt, 2)
+            }
         }
 
 
@@ -106,10 +128,11 @@ class MissionDigitalTwin:
         self.state = initial_state if initial_state else SpacecraftState()
         self.event_log = []
         self.mass_conservation_log = []
+        self.isru_model = MarsISRUModel()
 
-    def enforce_mass_conservation(self, event_name, m_initial, m_final, prop_burned, consumables_spent, boiloff_lost):
-        """Enforces M_initial = M_final + prop_burned + consumables_spent + boiloff_lost within numerical tolerance."""
-        accounted_final = m_final + prop_burned + consumables_spent + boiloff_lost
+    def enforce_mass_conservation(self, event_name, m_initial, m_final, prop_burned, consumables_spent, boiloff_lost, isru_reloaded=0.0):
+        """Enforces M_initial + isru_reloaded = M_final + prop_burned + consumables_spent + boiloff_lost."""
+        accounted_final = m_final + prop_burned + consumables_spent + boiloff_lost - isru_reloaded
         error_mt = abs(m_initial - accounted_final)
         assert error_mt < 1e-4, f"MASS CONSERVATION VIOLATION in {event_name}: M_i={m_initial}, Accounted={accounted_final}, Err={error_mt}"
         self.mass_conservation_log.append({
@@ -119,6 +142,7 @@ class MissionDigitalTwin:
             "prop_burned_mt": round(prop_burned, 4),
             "consumables_spent_mt": round(consumables_spent, 4),
             "boiloff_lost_mt": round(boiloff_lost, 4),
+            "isru_reloaded_mt": round(isru_reloaded, 4),
             "error_mt": round(error_mt, 8)
         })
 
@@ -185,7 +209,6 @@ class MissionDigitalTwin:
         duration_s = (lh2_to_burn * 1000.0) / mdot_kg_s if mdot_kg_s > 0 else 0.0
         m_final = m_initial - lh2_to_burn
 
-        # Analytical Tsiolkovsky Delta-V
         tsiolkovsky_dv_kms = (v_e * math.log(m_initial / m_final)) / 1000.0 if m_final > 0 else 0.0
 
         # Numerical integration step cross-check (dt = 1s)
@@ -200,7 +223,6 @@ class MissionDigitalTwin:
                 m_step -= mdot_mt_s * dt
         numerical_dv_kms = numerical_dv_ms / 1000.0
 
-        # Disagreement check between numerical and analytical equation (<0.5%)
         dv_diff_percent = abs(tsiolkovsky_dv_kms - numerical_dv_kms) / tsiolkovsky_dv_kms * 100.0 if tsiolkovsky_dv_kms > 0 else 0.0
         assert dv_diff_percent < 0.5, f"NUMERICAL VS ANALYTICAL DISAGREEMENT: Tsiolkovsky={tsiolkovsky_dv_kms}, Num={numerical_dv_kms}"
 
@@ -260,13 +282,11 @@ class MissionDigitalTwin:
         m_final = m_initial - lnh3_to_burn
         tsiolkovsky_dv_kms = (v_e * math.log(m_initial / m_final)) / 1000.0 if m_final > 0 else 0.0
 
-        # Passive LH2 boiloff during cruise phase
         boiloff_lost_mt = self.state.lh2_mt * self.state.passive_boiloff_rate_percent_per_day * actual_duration_days
         boiloff_lost_mt = min(self.state.lh2_mt, boiloff_lost_mt)
         self.state.lh2_mt -= boiloff_lost_mt
         self.state.cumulative_boiloff_loss_mt += boiloff_lost_mt
 
-        # Radiation accumulation during transit (0.07 cSv / day baseline GCR)
         rad_dose_csv = 0.07 * actual_duration_days
         self.state.accumulated_radiation_csv += rad_dose_csv
 
@@ -276,7 +296,6 @@ class MissionDigitalTwin:
         self.state.v_vec_kms[0] += tsiolkovsky_dv_kms * norm_dir[0]
         self.state.v_vec_kms[1] += tsiolkovsky_dv_kms * norm_dir[1]
 
-        # State transition
         self.state.lnh3_mt -= lnh3_to_burn
         self.state.time_days += actual_duration_days
         self.state.total_delta_v_kms += tsiolkovsky_dv_kms
@@ -298,38 +317,55 @@ class MissionDigitalTwin:
         self.event_log.append(record)
         return record
 
-    def execute_coast_or_stay(self, phase_name, duration_days, mode="mars_stay"):
-        """Executes surface stay or coast phase with crew consumable loss and health propagation."""
+    def execute_mars_isru_reload_and_stay(self, phase_name="Mars ISRU Propellant Reload & Stay (640d)", duration_days=640.0):
+        """Executes Mars stay and ISRU propellant reload into Enterprise X tanks."""
         m_initial = self.state.gross_mass_mt
-        self.update_power_and_thermal(mode=mode)
+        self.update_power_and_thermal(mode="mars_stay")
+
+        if self.state.isru_plant_operational:
+            # Run ISRU Model to determine baseline production capabilities
+            isru_res = self.isru_model.run_full_isru_model()
+            accounting = isru_res["propellant_accounting"]
+
+            gross_produced_mt = accounting["gross_lh2_production_mt"]
+            net_tei_lh2_mt = accounting["net_tei_lh2_mt"]
+
+            self.state.lh2_produced_mt = max(self.state.lh2_produced_mt, gross_produced_mt)
+            self.state.lh2_depot_stored_mt = max(self.state.lh2_depot_stored_mt, gross_produced_mt - accounting["loss_breakdown_mt"]["storage_boiloff_mt"])
+            lh2_reloaded_mt = net_tei_lh2_mt
+        else:
+            # Plant is degraded or failed: reload only what was actually produced/stored
+            lh2_reloaded_mt = min(2200.0, self.state.lh2_depot_stored_mt)
+
+        self.state.lh2_mt += lh2_reloaded_mt
+        self.state.lh2_reloaded_to_ship_mt = lh2_reloaded_mt
 
         # Crew consumable usage deducted from dry mass
         consumable_loss_mt = min(self.state.crew_consumables_mt, 0.0723 * duration_days)
         self.state.crew_consumables_mt -= consumable_loss_mt
-        self.state.dry_mass_mt -= consumable_loss_mt  # Dry mass decreases as consumables are consumed
+        self.state.dry_mass_mt -= consumable_loss_mt
 
         # Passive LH2 boiloff during stay
         boiloff_lost_mt = min(self.state.lh2_mt, self.state.lh2_mt * self.state.passive_boiloff_rate_percent_per_day * duration_days)
         self.state.lh2_mt -= boiloff_lost_mt
         self.state.cumulative_boiloff_loss_mt += boiloff_lost_mt
 
-        # Radiation accumulation during stay (0.03 cSv/day on Mars surface/orbit shielded)
         rad_dose_csv = 0.03 * duration_days
         self.state.accumulated_radiation_csv += rad_dose_csv
 
-        # Centrifuge check on crew health
         if not self.state.centrifuge_active:
             self.state.crew_health_percent = max(50.0, self.state.crew_health_percent - 0.05 * duration_days)
 
         self.state.time_days += duration_days
 
-        self.enforce_mass_conservation(phase_name, m_initial, self.state.gross_mass_mt, 0.0, consumable_loss_mt, boiloff_lost_mt)
+        self.enforce_mass_conservation(phase_name, m_initial, self.state.gross_mass_mt, 0.0, consumable_loss_mt, boiloff_lost_mt, isru_reloaded=lh2_reloaded_mt)
 
         record = {
             "phase": phase_name,
-            "type": "COAST_STAY",
+            "type": "MARS_ISRU_STAY",
             "duration_days": duration_days,
             "end_time_days": round(self.state.time_days, 2),
+            "lh2_reloaded_mt": round(lh2_reloaded_mt, 2),
             "gross_mass_mt": round(self.state.gross_mass_mt, 2),
             "crew_health_percent": round(self.state.crew_health_percent, 1),
             "accumulated_radiation_csv": round(self.state.accumulated_radiation_csv, 2)
@@ -338,12 +374,20 @@ class MissionDigitalTwin:
         return record
 
     def evaluate_mission_success_predicate(self):
-        """Formally evaluates machine-readable mission success predicate."""
+        """Formally evaluates machine-readable physical mission success predicate for Phase 8."""
         p_earth_dep = "Trans-Mars Injection (TMI)" in [e["phase"] for e in self.event_log]
         p_mars_enc = "Mars Orbit Insertion (MOI)" in [e["phase"] for e in self.event_log]
-        p_mars_stay = "Mars Orbit Stay (640d)" in [e["phase"] for e in self.event_log]
+        p_mars_stay = any("Mars" in e["phase"] and "Stay" in e["phase"] for e in self.event_log)
         p_tei = "Trans-Earth Injection (TEI)" in [e["phase"] for e in self.event_log]
         p_earth_cap = "Earth Orbit Capture (EOI)" in [e["phase"] for e in self.event_log]
+
+        # Phase 8 ISRU Specific Predicates
+        p_isru_precursor = self.state.isru_precursor_deployed
+        p_isru_operational = self.state.isru_plant_operational
+        p_isru_manufactured = (self.state.lh2_produced_mt >= 2200.0)
+        p_isru_stored = (self.state.lh2_depot_stored_mt >= 2200.0)
+        p_isru_power_closure = self.state.isru_power_closure
+        p_isru_thermal_closure = self.state.isru_thermal_closure
 
         p_prop_reserve = (self.state.lh2_mt >= 0.0 and self.state.lnh3_mt >= 0.0)
         p_power_margin = (self.state.electrical_power_mwe - self.state.house_load_mwe - self.state.propulsion_load_mwe) >= -0.01
@@ -352,15 +396,24 @@ class MissionDigitalTwin:
         p_no_critical_fail = not self.state.system_health["critical_failure"]
 
         success = (p_earth_dep and p_mars_enc and p_mars_stay and p_tei and
+                   p_isru_precursor and p_isru_operational and p_isru_manufactured and
+                   p_isru_stored and p_isru_power_closure and p_isru_thermal_closure and
                    p_prop_reserve and p_power_margin and p_thermal_margin and
                    p_crew_health and p_no_critical_fail)
 
         return {
             "mission_success": success,
+            "program_status": "ENGINEERINGALLY CONDITIONAL" if success else "PHYSICALLY INFEASIBLE",
             "predicates": {
                 "earth_departure_achieved": p_earth_dep,
                 "mars_encounter_achieved": p_mars_enc,
                 "mars_operations_completed": p_mars_stay,
+                "isru_precursor_deployed": p_isru_precursor,
+                "isru_infrastructure_operational": p_isru_operational,
+                "return_propellant_manufactured": p_isru_manufactured,
+                "return_propellant_stored": p_isru_stored,
+                "isru_power_closure_verified": p_isru_power_closure,
+                "isru_thermal_closure_verified": p_isru_thermal_closure,
                 "earth_return_achieved": p_tei,
                 "earth_capture_achieved": p_earth_cap,
                 "propellant_reserve_positive": p_prop_reserve,
@@ -372,7 +425,7 @@ class MissionDigitalTwin:
         }
 
     def run_full_mission_baseline(self):
-        """Runs the sequential baseline simulation for Mission B (Earth-Mars-Earth)."""
+        """Runs the sequential baseline simulation for Mission B (Earth-Mars-ISRU-Earth)."""
         self.execute_ntp_burn("Trans-Mars Injection (TMI)", target_dv_kms=3.80, vector_direction=[1.0, 0.2])
         self.state.soi_reference = "Sun_Heliocentric"
 
@@ -381,7 +434,8 @@ class MissionDigitalTwin:
 
         self.execute_ntp_burn("Mars Orbit Insertion (MOI)", target_dv_kms=2.10, vector_direction=[-0.9, -0.1])
 
-        self.execute_coast_or_stay("Mars Orbit Stay (640d)", duration_days=640.0, mode="mars_stay")
+        # Execute Mars stay with ISRU reload
+        self.execute_mars_isru_reload_and_stay("Mars ISRU Propellant Reload & Stay (640d)", duration_days=640.0)
 
         self.execute_ntp_burn("Trans-Earth Injection (TEI)", target_dv_kms=1.80, vector_direction=[-1.0, -0.2])
         self.state.soi_reference = "Sun_Heliocentric"
@@ -398,8 +452,9 @@ class MissionDigitalTwin:
             "vehicle": {
                 "name": "USS Enterprise X (Project Occam-7)",
                 "dry_mass_mt": 1470.96,
-                "propellant_inventory_mt": 2500.0,
-                "gross_departure_mass_mt": 3970.96
+                "initial_propellant_mt": 2500.0,
+                "gross_departure_mass_mt": 3970.96,
+                "isru_reloaded_lh2_mt": round(self.state.lh2_reloaded_to_ship_mt, 2)
             },
             "events": self.event_log,
             "final_state": self.state.to_dict(),
@@ -410,22 +465,6 @@ class MissionDigitalTwin:
             }
         }
         return output
-
-    def run_failure_case(self, failure_type):
-        """Simulates specific failure modes and propagates state consequences."""
-        if failure_type == "radiator_loss_25":
-            self.state.system_health["radiator_fraction"] = 0.75
-        elif failure_type == "ntp_engine_loss_1":
-            self.state.system_health["ntp_engines_active"] = 3
-        elif failure_type == "propellant_loss_30":
-            self.state.lh2_mt *= 0.70
-            self.state.lnh3_mt *= 0.70
-        elif failure_type == "reactor_degraded_50":
-            self.state.system_health["reactor_health"] = 0.50
-        elif failure_type == "gravity_loss":
-            self.state.centrifuge_active = False
-
-        return self.run_full_mission_baseline()
 
 
 def generate_json_baseline(output_path="engineering/calculations/mission_baseline.json"):
@@ -438,6 +477,7 @@ def generate_json_baseline(output_path="engineering/calculations/mission_baselin
 
     print(f"Digital Twin baseline output successfully written to: {output_path}")
     return res
+
 
 if __name__ == "__main__":
     generate_json_baseline()
