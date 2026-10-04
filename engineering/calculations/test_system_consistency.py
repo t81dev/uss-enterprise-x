@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
 Automated System Consistency & Sequential Digital Twin Test Suite for Project Occam-7
+Updated for Program Phase 8 — Mars ISRU, Propellant Logistics & Mission Closure.
+
 Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests,
 thermal/power state machines, launch logistics, centrifuge dynamics, mass conservation, vector kinematics,
-numerical vs analytical rocket equation agreement, cryogenic boiloff, crew health models, and mission success predicates.
+numerical vs analytical rocket equation agreement, cryogenic boiloff, crew health models,
+Mars ISRU water/hydrogen conservation, electrolysis thermodynamics, liquefaction power,
+radiator thermal closure, surface timeline closure, and machine-readable mission success predicates.
 """
 
 import math
@@ -16,6 +20,7 @@ from shielding_estimator import shielding_calculator
 from radiator_sizing import calculate_radiator_area
 from mission_digital_twin import MissionDigitalTwin, SpacecraftState
 from earth_mars_transfer import EarthMarsTransferSolver, MU_SUN, MU_EARTH, MU_MARS, R_EARTH_ORBIT, R_MARS_ORBIT
+from mars_isru import MarsISRUModel, KG_WATER_PER_KG_H2, KG_O2_PER_KG_H2, DELTA_H_ELECTROLYSIS_KWH_PER_KG
 
 G0 = 9.80665
 
@@ -57,12 +62,12 @@ class TestSystemConsistency(unittest.TestCase):
         lh2_burned = sum(e.get("lh2_burned_mt", 0.0) for e in twin.event_log)
         lnh3_burned = sum(e.get("lnh3_burned_mt", 0.0) for e in twin.event_log)
         boiloff_lost = twin.state.cumulative_boiloff_loss_mt
+        isru_reloaded = twin.state.lh2_reloaded_to_ship_mt
         m_final = twin.state.gross_mass_mt
 
-        # Total consumable loss from dry budget
         consumables_lost = 72.3 - twin.state.crew_consumables_mt
 
-        m_accounted = m_final + lh2_burned + lnh3_burned + boiloff_lost + consumables_lost
+        m_accounted = m_final + lh2_burned + lnh3_burned + boiloff_lost + consumables_lost - isru_reloaded
         self.assertAlmostEqual(m_initial, m_accounted, delta=0.1)
 
     def test_numerical_vs_tsiolkovsky_rocket_equation(self):
@@ -109,7 +114,6 @@ class TestSystemConsistency(unittest.TestCase):
         solver = EarthMarsTransferSolver()
         hohmann = solver.hohmann_transfer()
 
-        # Check TMI & MOI delta-v values against orbital mechanics
         self.assertAlmostEqual(hohmann["dv_tmi_kms"], 3.568, delta=0.05)
         self.assertAlmostEqual(hohmann["dv_moi_kms"], 2.036, delta=0.05)
         self.assertAlmostEqual(hohmann["v_inf_dep_kms"], 2.949, delta=0.05)
@@ -123,10 +127,9 @@ class TestSystemConsistency(unittest.TestCase):
     def test_crew_health_and_survivability_model(self):
         """Requirement 19 & 20: Verify crew radiation dose, centrifuge dynamics, and health decay."""
         twin = MissionDigitalTwin()
-        twin.state.centrifuge_active = False  # Disable centrifuge
-        twin.execute_coast_or_stay("Microgravity Stay", duration_days=100.0)
+        twin.state.centrifuge_active = False
+        twin.execute_mars_isru_reload_and_stay("Microgravity Stay", duration_days=100.0)
 
-        # Health should decay by 5.0% over 100 days
         self.assertAlmostEqual(twin.state.crew_health_percent, 95.0, delta=0.1)
 
     def test_cryogenic_boiloff_and_zbo_refrigeration(self):
@@ -135,9 +138,8 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertEqual(state.zbo_refrigeration_mwe, 0.015)  # 15 kWe
 
         twin = MissionDigitalTwin(initial_state=state)
-        twin.execute_coast_or_stay("Orbital Storage", duration_days=100.0)
+        twin.execute_mars_isru_reload_and_stay("Orbital Storage", duration_days=100.0)
 
-        # Passive boiloff should be tracked
         self.assertGreater(twin.state.cumulative_boiloff_loss_mt, 0.0)
 
     def test_machine_readable_mission_success_predicate(self):
@@ -149,6 +151,7 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertTrue(predicates["mission_success"])
         self.assertTrue(predicates["predicates"]["earth_departure_achieved"])
         self.assertTrue(predicates["predicates"]["mars_encounter_achieved"])
+        self.assertTrue(predicates["predicates"]["return_propellant_manufactured"])
         self.assertTrue(predicates["predicates"]["earth_return_achieved"])
 
     def test_thermal_radiator_stefan_boltzmann_balance(self):
@@ -178,6 +181,95 @@ class TestSystemConsistency(unittest.TestCase):
 
         expected_retrograde = ((omega * radius - walk_v)**2) / radius
         self.assertAlmostEqual(res["a_retrograde"], expected_retrograde, places=4)
+
+    # --- PHASE 8 MARS ISRU TEST SUITE ---
+
+    def test_isru_water_and_hydrogen_stoichiometry(self):
+        """Phase 8 Test: Verify water-to-hydrogen chemical stoichiometry mass conservation."""
+        model = MarsISRUModel()
+        res = model.run_full_isru_model()
+
+        gross_lh2 = res["propellant_accounting"]["gross_lh2_production_mt"]
+        pure_water = res["feedstock_analysis"]["glacial_ice"]["pure_water_required_mt"]
+
+        expected_water_mt = gross_lh2 * KG_WATER_PER_KG_H2
+        self.assertAlmostEqual(pure_water, expected_water_mt, delta=1.0)
+
+        gross_o2 = res["propellant_accounting"]["gross_o2_byproduct_mt"]
+        expected_o2_mt = gross_lh2 * KG_O2_PER_KG_H2
+        self.assertAlmostEqual(gross_o2, expected_o2_mt, delta=1.0)
+
+    def test_isru_electrolysis_power_first_principles(self):
+        """Phase 8 Test: Verify first-principles SOEC electrolysis thermodynamic power calculation."""
+        model = MarsISRUModel()
+        res = model.run_full_isru_model()
+
+        specific_e = res["power_and_energy_derivation"]["specific_energy_kwh_per_kg_lh2"]
+        soec_e = res["power_and_energy_derivation"]["breakdown_kwh_per_kg"]["soec_electrolysis"]
+
+        self.assertGreater(soec_e, DELTA_H_ELECTROLYSIS_KWH_PER_KG)
+        self.assertAlmostEqual(soec_e, DELTA_H_ELECTROLYSIS_KWH_PER_KG / 0.72, delta=0.5)
+
+        self.assertGreater(specific_e, 70.0)
+        self.assertLess(specific_e, 95.0)
+
+    def test_isru_power_budget_and_reactor_closure(self):
+        """Phase 8 Test: Verify Mars surface power budget summation and power closure."""
+        model = MarsISRUModel()
+        res = model.run_full_isru_model()
+
+        budget = res["mars_surface_power_budget"]["itemized_power_budget"]
+        total_avg_mwe = res["mars_surface_power_budget"]["total_surface_avg_mwe"]
+
+        sum_kw = sum(v["avg_kw"] for v in budget.values())
+        self.assertAlmostEqual(sum_kw / 1000.0, total_avg_mwe, delta=0.1)
+
+        # Precursor reactor rating must exceed total surface power demand
+        reactor_power_mwe = 25.0
+        self.assertGreater(reactor_power_mwe, total_avg_mwe)
+
+    def test_isru_thermal_rejection_radiators(self):
+        """Phase 8 Test: Verify waste heat Q_waste calculation and radiator area/mass closure."""
+        model = MarsISRUModel()
+        res = model.run_full_isru_model()
+
+        thermal = res["thermal_rejection_and_radiators"]
+        total_q_waste = thermal["total_q_waste_mwth"]
+        rad_mass = thermal["radiator_mass_mt"]
+
+        self.assertGreater(total_q_waste, 30.0)  # > 30 MWth waste heat
+        self.assertGreater(rad_mass, 50.0)      # > 50 tonnes radiator array
+
+    def test_isru_production_rates_and_timeline(self):
+        """Phase 8 Test: Verify daily/hourly production rates over campaign timeline."""
+        model = MarsISRUModel(target_lh2_net_mt=2200.0, production_days=500.0)
+        res = model.run_full_isru_model()
+
+        rates = res["production_rates_and_equipment"]["production_rates"]
+        lh2_day = rates["lh2_produced_kg_day"]
+        water_day = rates["water_extracted_mt_day"]
+
+        self.assertAlmostEqual(lh2_day, (2760.8 * 1000.0) / 500.0, delta=1.0)
+        self.assertGreater(water_day, 40.0)  # > 40 tonnes water/day
+
+    def test_isru_failure_assertions(self):
+        """Phase 8 Test: Verify test assertions enforce failure when ISRU constraints are violated."""
+        # Case 1: Insufficient Power
+        state = SpacecraftState()
+        state.isru_power_closure = False
+        state.isru_plant_operational = False
+        twin = MissionDigitalTwin(initial_state=state)
+        res = twin.run_full_mission_baseline()
+        self.assertFalse(res["success_predicate_assessment"]["mission_success"])
+
+        # Case 2: Insufficient LH2 Produced
+        state2 = SpacecraftState()
+        state2.isru_plant_operational = False
+        state2.lh2_produced_mt = 1000.0 # Only 1000 t produced
+        state2.lh2_depot_stored_mt = 985.0
+        twin2 = MissionDigitalTwin(initial_state=state2)
+        res2 = twin2.run_full_mission_baseline()
+        self.assertFalse(res2["success_predicate_assessment"]["mission_success"])
 
 
 if __name__ == "__main__":
