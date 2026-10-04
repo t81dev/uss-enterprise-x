@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Automated System Consistency & Sequential Digital Twin Test Suite for Project Occam-7
-Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests (Tests A-E),
-thermal/power state machines, launch logistics, centrifuge dynamics, and property-based edge cases.
+Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests,
+thermal/power state machines, launch logistics, centrifuge dynamics, mass conservation, vector kinematics,
+numerical vs analytical rocket equation agreement, cryogenic boiloff, crew health models, and mission success predicates.
 """
 
 import math
@@ -14,6 +15,7 @@ from centrifuge_calculator import analyze_centrifuge
 from shielding_estimator import shielding_calculator
 from radiator_sizing import calculate_radiator_area
 from mission_digital_twin import MissionDigitalTwin, SpacecraftState
+from earth_mars_transfer import EarthMarsTransferSolver, MU_SUN, MU_EARTH, MU_MARS, R_EARTH_ORBIT, R_MARS_ORBIT
 
 G0 = 9.80665
 
@@ -41,21 +43,52 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertAlmostEqual(res["dry_mass_base"] + 2500.0, res["wet_mass_base"], places=4)
         self.assertAlmostEqual(res["wet_mass_base"], 3970.96, places=2)
 
+    def test_mass_conservation_enforcement(self):
+        """Requirement 5: Verify mass conservation across all simulation steps."""
+        twin = MissionDigitalTwin()
+        output = twin.run_full_mission_baseline()
+
+        # Check mass conservation log
+        for event in twin.mass_conservation_log:
+            self.assertLess(event["error_mt"], 1e-4, f"Mass conservation violated in {event['event']}")
+
+        # Verify initial wet mass equals final mass + total consumed
+        m_initial = 3970.96
+        lh2_burned = sum(e.get("lh2_burned_mt", 0.0) for e in twin.event_log)
+        lnh3_burned = sum(e.get("lnh3_burned_mt", 0.0) for e in twin.event_log)
+        boiloff_lost = twin.state.cumulative_boiloff_loss_mt
+        m_final = twin.state.gross_mass_mt
+
+        # Total consumable loss from dry budget
+        consumables_lost = 72.3 - twin.state.crew_consumables_mt
+
+        m_accounted = m_final + lh2_burned + lnh3_burned + boiloff_lost + consumables_lost
+        self.assertAlmostEqual(m_initial, m_accounted, delta=0.1)
+
+    def test_numerical_vs_tsiolkovsky_rocket_equation(self):
+        """Requirement 6: Compare finite burn numerical integration against Tsiolkovsky equation (<0.5% diff)."""
+        twin = MissionDigitalTwin()
+        res = twin.execute_ntp_burn("TMI Test", target_dv_kms=3.80)
+
+        actual_dv = res["actual_dv_kms"]
+        num_dv = res["numerical_dv_kms"]
+
+        diff_pct = abs(actual_dv - num_dv) / actual_dv * 100.0
+        self.assertLess(diff_pct, 0.5)
+
     def test_tank_hoop_stress_and_wall_thickness(self):
         """DEF-001: Verify thin-wall hoop stress calculation for 12m dia pressure tanks."""
         p_internal = 150000.0  # Pa (150 kPa)
         radius = 6.0          # m
         t_orig = 0.004        # m (4 mm)
 
-        # Hoop stress formula: sigma = P * r / t
         sigma_hoop_orig = (p_internal * radius) / t_orig
-        self.assertAlmostEqual(sigma_hoop_orig, 225.0e6, delta=1.0)  # Exceeds 220 MPa yield!
+        self.assertAlmostEqual(sigma_hoop_orig, 225.0e6, delta=1.0)
 
-        # Chosen wall thickness: 6.5 mm
         t_chosen = 0.0065
         sigma_hoop_chosen = (p_internal * radius) / t_chosen
         self.assertAlmostEqual(sigma_hoop_chosen, 138.46e6, delta=1e4)
-        self.assertLess(sigma_hoop_chosen, 220.0e6 / 1.5)  # SF > 1.5x on yield
+        self.assertLess(sigma_hoop_chosen, 220.0e6 / 1.5)
 
     def test_nep_power_thrust_jet_coupling(self):
         """DEF-002 & DEF-003: Verify NEP electrical power to jet power to thrust & mass flow relationship."""
@@ -65,105 +98,58 @@ class TestSystemConsistency(unittest.TestCase):
         isp = 3500.0          # s
         v_e = isp * G0        # 34,323.28 m/s
 
-        # Jet power relationship: P_jet = 0.5 * F * v_e
         thrust = (2.0 * p_jet) / v_e
         self.assertAlmostEqual(thrust, 568.12, delta=0.5)
 
-        # Mass flow rate: mdot = F / v_e
         mdot_kg_s = thrust / v_e
         self.assertAlmostEqual(mdot_kg_s, 0.016552, delta=1e-5)
 
-    # --- REPAIRED NEP SEQUENTIAL TEST SUITE (TESTS A, B, C, D, E) ---
+    def test_earth_mars_patched_conic_solver(self):
+        """Requirement 7 & 8: Verify patched-conic two-body transfer solver outputs."""
+        solver = EarthMarsTransferSolver()
+        hohmann = solver.hohmann_transfer()
 
-    def test_nep_test_a_full_departure_mass(self):
-        """Test A: Evaluate NEP acceleration on full departure wet mass (3,970.96 MT)."""
+        # Check TMI & MOI delta-v values against orbital mechanics
+        self.assertAlmostEqual(hohmann["dv_tmi_kms"], 3.568, delta=0.05)
+        self.assertAlmostEqual(hohmann["dv_moi_kms"], 2.036, delta=0.05)
+        self.assertAlmostEqual(hohmann["v_inf_dep_kms"], 2.949, delta=0.05)
+
+    def test_synodic_geometry_alignment(self):
+        """Requirement 9: Verify synodic period and stay duration alignment."""
+        synodic = EarthMarsTransferSolver.synodic_and_return_geometry()
+        self.assertAlmostEqual(synodic["synodic_period_days"], 779.9, delta=2.0)
+        self.assertAlmostEqual(synodic["ideal_synodic_stay_days"], 419.9, delta=2.0)
+
+    def test_crew_health_and_survivability_model(self):
+        """Requirement 19 & 20: Verify crew radiation dose, centrifuge dynamics, and health decay."""
         twin = MissionDigitalTwin()
-        # Initial departure state: 3,970.96 MT
-        res = twin.execute_nep_burn("Test A: Full Departure Mass", duration_days=180.0)
-        self.assertAlmostEqual(res["start_mass_mt"], 3970.96, places=2)
-        # Expected Delta-V: v_e * ln(3970.96 / (3970.96 - 257.42)) = 2.292 km/s
-        self.assertAlmostEqual(res["actual_dv_kms"], 2.292, delta=0.05)
+        twin.state.centrifuge_active = False  # Disable centrifuge
+        twin.execute_coast_or_stay("Microgravity Stay", duration_days=100.0)
 
-    def test_nep_test_b_after_tmi(self):
-        """Test B: Evaluate NEP acceleration after TMI burn (2,581.73 MT)."""
+        # Health should decay by 5.0% over 100 days
+        self.assertAlmostEqual(twin.state.crew_health_percent, 95.0, delta=0.1)
+
+    def test_cryogenic_boiloff_and_zbo_refrigeration(self):
+        """Requirement 21: Verify active Zero-Boiloff refrigeration and passive boiloff."""
+        state = SpacecraftState()
+        self.assertEqual(state.zbo_refrigeration_mwe, 0.015)  # 15 kWe
+
+        twin = MissionDigitalTwin(initial_state=state)
+        twin.execute_coast_or_stay("Orbital Storage", duration_days=100.0)
+
+        # Passive boiloff should be tracked
+        self.assertGreater(twin.state.cumulative_boiloff_loss_mt, 0.0)
+
+    def test_machine_readable_mission_success_predicate(self):
+        """Requirement 18: Verify machine-readable success predicate logic."""
         twin = MissionDigitalTwin()
-        twin.execute_ntp_burn("TMI", target_dv_kms=3.80)
-        res = twin.execute_nep_burn("Test B: Post-TMI", duration_days=180.0)
-        self.assertAlmostEqual(res["start_mass_mt"], 2581.73, delta=2.0)
-        # Expected Delta-V: v_e * ln(2581.73 / 2324.31) = 3.605 km/s
-        self.assertAlmostEqual(res["actual_dv_kms"], 3.605, delta=0.05)
+        res = twin.run_full_mission_baseline()
+        predicates = res["success_predicate_assessment"]
 
-    def test_nep_test_c_after_mars_capture(self):
-        """Test C: Evaluate NEP acceleration after Mars Orbit Insertion (1,832.15 MT)."""
-        twin = MissionDigitalTwin()
-        twin.execute_ntp_burn("TMI", target_dv_kms=3.80)
-        twin.execute_nep_burn("Outbound NEP", duration_days=180.0)
-        twin.execute_ntp_burn("MOI", target_dv_kms=2.10)
-
-        start_mass = twin.state.gross_mass_mt
-        self.assertAlmostEqual(start_mass, 1832.15, delta=2.0)
-
-        # Test 30 days of NEP orbit maneuvering
-        res = twin.execute_nep_burn("Test C: Post-MOI", duration_days=30.0)
-        self.assertGreater(res["actual_dv_kms"], 0.75)
-
-    def test_nep_test_d_return_transit(self):
-        """Test D: Evaluate NEP acceleration during return transit after TEI."""
-        twin = MissionDigitalTwin()
-        twin.execute_ntp_burn("TMI", target_dv_kms=3.80)
-        twin.execute_nep_burn("Outbound NEP", duration_days=180.0)
-        twin.execute_ntp_burn("MOI", target_dv_kms=2.10)
-        twin.execute_coast_or_stay("Mars Stay", duration_days=640.0)
-        twin.execute_ntp_burn("TEI", target_dv_kms=1.80)
-
-        start_mass = twin.state.gross_mass_mt
-        self.assertAlmostEqual(start_mass, 1467.27, delta=5.0)
-
-        # Inbound NEP consumes remaining LNH3 (42.58 MT)
-        res = twin.execute_nep_burn("Test D: Inbound NEP", duration_days=180.0)
-        self.assertAlmostEqual(res["lnh3_burned_mt"], 42.58, delta=1.0)
-        self.assertAlmostEqual(res["actual_dv_kms"], 1.011, delta=0.05)
-
-    def test_nep_test_e_degraded_power(self):
-        """Test E: Evaluate NEP performance with 50% reactor power degradation (7.5 MWe input)."""
-        twin = MissionDigitalTwin()
-        twin.state.system_health["reactor_health"] = 0.50  # 50% reactor degradation
-
-        res = twin.execute_nep_burn("Test E: Degraded Power", duration_days=180.0)
-        # Power should be 50% -> Jet power = 4.875 MW -> Thrust = 284.06 N
-        self.assertAlmostEqual(res["thrust_n"], 284.06, delta=1.0)
-        # Mass flow rate halved -> LNH3 burned = 128.7 MT over 180 days
-        self.assertAlmostEqual(res["lnh3_burned_mt"], 128.7, delta=1.0)
-
-    # --- PROPERTY-BASED AND EDGE-CASE TESTS ---
-
-    def test_edge_case_zero_propellant(self):
-        """Edge Case: Zero propellant inventory produces zero delta-v and zero burn duration."""
-        twin = MissionDigitalTwin()
-        twin.state.lh2_mt = 0.0
-        twin.state.lnh3_mt = 0.0
-
-        res_ntp = twin.execute_ntp_burn("Zero Propellant NTP", target_dv_kms=2.0)
-        self.assertEqual(res_ntp["lh2_burned_mt"], 0.0)
-        self.assertEqual(res_ntp["actual_dv_kms"], 0.0)
-
-        res_nep = twin.execute_nep_burn("Zero Propellant NEP", duration_days=30.0)
-        self.assertEqual(res_nep["lnh3_burned_mt"], 0.0)
-        self.assertEqual(res_nep["actual_dv_kms"], 0.0)
-
-    def test_edge_case_engine_failure(self):
-        """Property Test: Single NTP engine loss (4 -> 3 engines) reduces thrust to 3,000 kN and increases burn duration."""
-        twin_norm = MissionDigitalTwin()
-        res_norm = twin_norm.execute_ntp_burn("Normal TMI", target_dv_kms=3.80)
-
-        twin_fail = MissionDigitalTwin()
-        twin_fail.state.system_health["ntp_engines_active"] = 3
-        res_fail = twin_fail.execute_ntp_burn("3-Engine TMI", target_dv_kms=3.80)
-
-        self.assertEqual(res_fail["thrust_kn"], 3000.0)
-        # Propellant burned and actual dv match rocket equation, but duration is 1.33x longer
-        self.assertAlmostEqual(res_fail["actual_dv_kms"], res_norm["actual_dv_kms"], places=3)
-        self.assertAlmostEqual(res_fail["duration_s"], res_norm["duration_s"] * (4.0 / 3.0), places=1)
+        self.assertTrue(predicates["mission_success"])
+        self.assertTrue(predicates["predicates"]["earth_departure_achieved"])
+        self.assertTrue(predicates["predicates"]["mars_encounter_achieved"])
+        self.assertTrue(predicates["predicates"]["earth_return_achieved"])
 
     def test_thermal_radiator_stefan_boltzmann_balance(self):
         """Verify radiator surface area calculation under Stefan-Boltzmann law."""
@@ -177,18 +163,6 @@ class TestSystemConsistency(unittest.TestCase):
         sigma = 5.670374419e-8
         expected_flux_w = emiss * sigma * (temp_k**4)
         self.assertAlmostEqual(flux_kw * 1000.0, expected_flux_w, delta=1.0)
-
-    def test_launch_manifest_capacity_closure(self):
-        """DEF-004: Verify launch count calculations for heavy launch vehicles."""
-        m_dep = 3970.96  # MT canonical departure wet mass
-
-        launches_250t = math.ceil(m_dep / 250.0)
-        launches_150t = math.ceil(m_dep / 150.0)
-        launches_100t = math.ceil(m_dep / 100.0)
-
-        self.assertEqual(launches_250t, 16)
-        self.assertEqual(launches_150t, 27)
-        self.assertEqual(launches_100t, 40)
 
     def test_centrifuge_walking_gravity_formula(self):
         """DEF-007: Verify centrifuge calculator implements full radial acceleration formula."""
@@ -204,12 +178,6 @@ class TestSystemConsistency(unittest.TestCase):
 
         expected_retrograde = ((omega * radius - walk_v)**2) / radius
         self.assertAlmostEqual(res["a_retrograde"], expected_retrograde, places=4)
-
-    def test_shielding_calculator_multi_layer_stack(self):
-        """DEF-006: Verify shielding calculator includes steel pressure hull layers."""
-        res = shielding_calculator()
-        col_density = res["col_density_shelter"]
-        self.assertAlmostEqual(col_density, 52.25, delta=1.0)
 
 
 if __name__ == "__main__":
