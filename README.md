@@ -51,6 +51,10 @@ Each major concept is tagged conceptually as one of:
 | `13-risk.md` | Technology, human, mission, and catastrophic-failure risks |
 | `14-roadmap.md` | Hardware-development sequence and technology gates |
 | `15-design-language.md` | What the ship looks like after the engineering constraints speak |
+| `16-architecture-audit.md` | Hostile project audit, technical contradictions, and reality classification |
+| `17-system-budget-v1.md` | Quantitative mass, electrical power, thermal, volume, and crew resource budgets |
+| `18-hull-architecture-trade.md` | Hull architecture trade study, matrix evaluation, and ADRs |
+| `19-failure-analysis-v1.md` | Hostile failure analysis and 5-stage survivability pipeline |
 | `concept/00-internal-design-memo.md` | Fictionalized internal design-reset memo |
 | `engineering/` | Future quantitative budgets and subsystem calculations |
 | `design/` | Configuration studies, diagrams, and visual iterations |
