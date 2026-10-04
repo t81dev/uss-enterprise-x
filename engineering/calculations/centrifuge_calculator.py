@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Artificial Gravity & Centrifuge Dynamics Calculator for Project Occam-7
-Calculates Centripetal Acceleration, RPM, Coriolis Effects, Bearing Torques, and Structural Mass Penalties.
+Calculates Centripetal Acceleration, RPM, Coriolis Effects, Radial Walking Acceleration, Bearing Torques, and Structural Mass.
 """
 
 import math
@@ -14,28 +14,34 @@ def analyze_centrifuge(radius_m, rpm, walk_v_ms=1.5):
     g_fraction = a_centripetal / G0
     v_tangential = omega * radius_m
 
-    # Coriolis acceleration walking prograde (+v) or retrograde (-v)
-    a_coriolis_prograde = 2.0 * omega * walk_v_ms
-    g_effective_prograde = (a_centripetal + a_coriolis_prograde) / G0
-    g_effective_retrograde = max(0, (a_centripetal - a_coriolis_prograde) / G0)
+    # Exact radial acceleration for walking in rotating frame:
+    # a_r = (omega * r +/- v)^2 / r = omega^2 * r +/- 2 * omega * v + v^2 / r
+    a_prograde = ((omega * radius_m + walk_v_ms) ** 2) / radius_m
+    a_retrograde = max(0.0, ((omega * radius_m - walk_v_ms) ** 2) / radius_m)
+
+    g_prograde = a_prograde / G0
+    g_retrograde = a_retrograde / G0
+    a_coriolis = 2.0 * omega * walk_v_ms
 
     return {
         "omega": omega,
         "a_m_s2": a_centripetal,
         "g_fraction": g_fraction,
         "v_tangential": v_tangential,
-        "g_prograde": g_effective_prograde,
-        "g_retrograde": g_effective_retrograde,
-        "coriolis_m_s2": a_coriolis_prograde
+        "a_prograde": a_prograde,
+        "a_retrograde": a_retrograde,
+        "g_prograde": g_prograde,
+        "g_retrograde": g_retrograde,
+        "coriolis_m_s2": a_coriolis
     }
 
 def centrifuge_trade():
-    print("=== ARTIFICIAL GRAVITY & CENTRIFUGE TRADE CALCULATOR V2 ===")
+    print("=== ARTIFICIAL GRAVITY & CENTRIFUGE TRADE CALCULATOR V2 (RECONCILED) ===")
 
     cases = [
         {"name": "Option 1: Internal Compact Centrifuge (v1 Baseline)", "radius": 6.0, "rpm": 10.0},
         {"name": "Option 2: Optimized Internal Centrifuge (High RPM)", "radius": 7.5, "rpm": 8.0},
-        {"name": "Option 3: Transverse Truss Counter-Rotating Ring", "radius": 15.0, "rpm": 6.0},
+        {"name": "Option 3: Transverse Truss Counter-Rotating Ring (v2 Baseline)", "radius": 15.0, "rpm": 6.0},
         {"name": "Option 4: Deployable Tether / Dual-Hull End-Mass Rotation", "radius": 56.0, "rpm": 4.0},
         {"name": "Option 5: Extended Tether Rotation (Full Earth 1-g)", "radius": 224.0, "rpm": 2.0}
     ]
@@ -44,10 +50,11 @@ def centrifuge_trade():
         res = analyze_centrifuge(c["radius"], c["rpm"])
         print(f"\n{c['name']}:")
         print(f"  Radius: {c['radius']} m | Speed: {c['rpm']} RPM ({res['omega']:.3f} rad/s)")
-        print(f"  Tangential Velocity: {res['v_tangential']:.2f} m/s")
-        print(f"  Centripetal Acceleration: {res['a_m_s2']:.2f} m/s^2 ({res['g_fraction']:.2f} g)")
-        print(f"  Coriolis Accel (1.5 m/s walk): {res['coriolis_m_s2']:.2f} m/s^2")
-        print(f"  Walking Prograde / Retrograde Delta: {res['g_prograde']:.2f} g / {res['g_retrograde']:.2f} g")
+        print(f"  Tangential Floor Velocity: {res['v_tangential']:.2f} m/s")
+        print(f"  Static Centripetal Accel:  {res['a_m_s2']:.2f} m/s^2 ({res['g_fraction']:.3f} g)")
+        print(f"  Coriolis Term (1.5m/s walk): {res['coriolis_m_s2']:.2f} m/s^2")
+        print(f"  Prograde Walking Acceleration:  {res['a_prograde']:.2f} m/s^2 ({res['g_prograde']:.3f} g)")
+        print(f"  Retrograde Walking Acceleration: {res['a_retrograde']:.2f} m/s^2 ({res['g_retrograde']:.3f} g)")
 
 if __name__ == "__main__":
     centrifuge_trade()

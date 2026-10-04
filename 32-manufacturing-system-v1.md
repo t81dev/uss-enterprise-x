@@ -1,87 +1,77 @@
-# 32 — Manufacturing System & Production Model v1
+# 32 — Manufacturing & Orbital Assembly Logistics System (Reconciled v2)
 
 **Document ID:** `32-manufacturing-system-v1.md`
-**Primary Industrial Paradigm:** Automated Standard Module Fabrication & Orbital Robotic Integration
-**First Ship Cost Target (Unit 001 Prototype):** $\$8.50\text{ Billion USD}$
-**100th Ship Cost Target (Unit 100 Fleet Scale):** $\$680\text{ Million USD}$
+**Primary Assembly Location:** Low Earth Orbit (LEO) Assembly Node ($400\text{ km}$ inclination $28.5^\circ$)
+**Reconciled Departure Mass ($M_{dep}$):** $3,970.96\text{ MT}$ ($1,470.96\text{ t}$ Dry Hardware + $2,500.0\text{ t}$ Propellant)
+**Primary Structural Architecture:** Modular Space-Frame Truss with APAS-2000 Autonomous Docking Nodes
 
 ---
 
-## 1. Unit 001 Prototype vs Unit 100 Serial Production Model
+## 1. Launch Logistics & Manifest Sizing (DEF-004 Reconciled)
 
-```
-UNIT 001 PROTOTYPE MANUFACTURING FLOW:
-[Ground Tooling Fabrication] -> [Manual Welded Ring Cassettes] -> [Heavy Launch Fairings (12 launches)] -> [LEO Human EVA Assembly]
-Cycle Time: 48 Months | Labor: 4,500 Engineers/Technicians | Cost: $8.50 Billion
+The v1 design claimed that a $3,947.4\text{ t}$ departure vehicle could be launched and assembled in **4 launches** of $250\text{ t}$-class heavy reusable launch vehicles ($1,000\text{ t}$ total delivery capacity). This was mathematically unviable.
 
-UNIT 100 SERIAL PRODUCTION FLOW:
-[Automated Robotic Cells] -> [Standardized Cassette Stamping] -> [Heavy Reusable Launch (4 launches)] -> [LEO Fully Autonomous Docking]
-Cycle Time: 6 Months | Labor: 250 Operations Engineers | Cost: $680 Million
-```
+To establish a realistic logistics baseline, the delivery manifest is itemized and evaluated across three launch vehicle payload capacity tiers:
+* **Case A:** $250\text{ t}$ Delivered Payload to LEO ($250\text{ t}$-Class Starship Heavy/Super-Heavy)
+* **Case B:** $150\text{ t}$ Delivered Payload to LEO ($150\text{ t}$-Class Reusable Super Heavy)
+* **Case C:** $100\text{ t}$ Delivered Payload to LEO ($100\text{ t}$-Class Commercial Heavy)
 
-| Manufacturing Parameter | First Ship (Enterprise X Unit 001) | 100th Ship (Enterprise X Unit 100) | Unit / Basis |
-|---|---:|---:|---|
-| **Total Production Cycle Time** | 48 Months | 6 Months | Factory floor to orbital commissioning |
-| **Direct Production Labor** | 4,500,000 Labor Hours | 180,000 Labor Hours | $96\%$ labor reduction via robotic cells |
-| **Ground Factory Footprint** | $120,000\text{ m}^2$ (Single High-Bay) | $450,000\text{ m}^2$ (Gigafactory Scale) | Specialized ring-welding cells |
-| **Tooling & Fixturing Amortization** | $\$3.2\text{ Billion}$ | $\$32\text{ Million / unit}$ | Amortized across 100-ship hull run |
-| **Launch Vehicle Requirements** | 12 Heavy Launches ($150\text{t}$ payload) | 4 Super-Heavy Launches ($250\text{t}$ payload) | Standardized module packaging |
-| **Orbital Assembly Labor** | $1,200\text{ EVA hours}$ (Human Assisted) | $0\text{ EVA hours}$ ($100\%$ Autonomous Robotic) | APAS automated latching & welding |
-| **Recurring Unit Cost** | **$\$8.50\text{ Billion USD}$** | **$\$680\text{ Million USD}$** | **Excludes initial R&D tooling** |
+### Itemized Assembly Payload Manifest
 
----
-
-## 2. Standardized Module Architecture & Factory Cells
-
-To achieve industrial throughput, the spacecraft is decomposed into 6 standardized modular cassettes:
-
-1. **Cell 1 — Structural Spine Truss Module:**
-   - Automated laser-beam welding of 316L stainless steel octagonal truss nodes.
-   - Integrated X-ray computed tomography (CT) weld inspection inline ($100\%$ weld volumetric verification).
-2. **Cell 2 — Habitat Pressure Hull Rings:**
-   - Friction stir welding (FSW) of $8\text{m}$ Al-Li ring segments and stainless steel dome caps.
-   - Hydrostatic pressure proof testing at $1.5 \times$ nominal pressure ($1.2\text{ atm}$ test pressure) in ground test cells.
-3. **Cell 3 — Propellant Tankage & Cryo-Insulation:**
-   - Automated tape placement (ATP) of carbon-composite tank walls with inner SS 316L liner.
-   - Spray-on vacuum insulation and zero-loss cryocooler installation.
-4. **Cell 4 — Radiator Panel Fabrication:**
-   - Automated diffusion bonding of carbon-composite heat pipes and NaK fluid manifolds.
-   - Helium mass-spectrometer leak testing ($<10^{-9}\text{ mbar}\cdot\text{l/s}$ leak threshold).
-5. **Cell 5 — Nuclear Reactor Core & Propulsion Integration:**
-   - Cleanroom assembly of fast fission core fuel pins, $B_4C$ shadow shielding, and Brayton turbogenerators.
-   - Hot-functional non-nuclear thermal fluid test prior to orbital integration.
-6. **Cell 6 — Avionics & ECLSS Cassettes:**
-   - Cleanroom insertion of TMR optical processing racks, water distillation loops, and Sabatier plants.
+| Module / Payload Category | Delivered Mass ($\text{MT}$) | Primary Contents & Hardware Function |
+| :--- | ---:| :--- |
+| **Module 1: Forward Habitat & ECLSS** | $160.0\text{ MT}$ | Habitat pressure hull, ECLSS recycling plant, crew quarters, life support |
+| **Module 2: Central Octagonal Spine Truss** | $210.0\text{ MT}$ | $380\text{m}$ primary load-bearing space frame, utility conduits, docking nodes |
+| **Module 3: Propellant Tank Assembly (Dry)** | $178.8\text{ MT}$ | $6.5\text{mm}$ 316L SS pressure tanks, zero-boiloff cryocoolers, MLI insulation |
+| **Module 4: Centrifuge Ring & Bearings** | $72.0\text{ MT}$ | $15\text{m}$ transverse ring, mag-lev bearings, counter-rotation drive motors |
+| **Module 5: Fast Fission Reactor & Shielding** | $75.0\text{ MT}$ | $100\text{ MW}_{th}$ reactor core, Brayton turbines, $45\text{t}$ conical shadow shield |
+| **Module 6: Thermal Radiator Array & Booms** | $26.8\text{ MT}$ | $2,502.8\text{ m}^2$ deployable panel wings, fluid manifolds, NaK coolant |
+| **Module 7: NTP & NEP Propulsion Array** | $55.0\text{ MT}$ | 4x Composite solid-core NTP engines, 4x MW MPD thruster arrays, gimbals |
+| **Module 8: Avionics, GNC & Defense** | $60.0\text{ MT}$ | Rad-hard optical compute cores, optical laser comms, Whipple bumper shields |
+| **Module 9: Passive Radiation Shielding** | $240.0\text{ MT}$ | SPE storm shelter inner walls, water jacket, HDPE polymer shielding |
+| **Module 10: Science Payload & Landers** | $90.0\text{ MT}$ | Surface landing excursion modules, exobiology labs, deep-space probes |
+| **Module 11: Consumables & Spares Inventory** | $97.3\text{ MT}$ | 1,000-day food rations, oxygen/nitrogen makeup, spare turbopumps/cassettes |
+| **Module 12: Assembly Robotics & Overhead** | $106.1\text{ MT}$ | Dual RMS servicing arms, orbital welding jigs, assembly propellant reserve |
+| **TOTAL DRY VEHICLE & ASSEMBLY MASS** | **1,470.96 MT** | **Fully assembled dry vehicle baseline** |
+| **Propellant Tanker Deliveries ($\text{LH}_2/\text{LNH}_3$)** | **2,500.0 MT** | **Main NTP ($2,200\text{t}$) + NEP ($300\text{t}$) propellant load** |
+| **TOTAL DELIVERED MASS TO LEO** | **3,970.96 MT** | **Gross assembly mass delivered to orbit** |
 
 ---
 
-## 3. Orbital Assembly Sequence & Docking Operations
+## 2. Launch Cadence & Fleet Requirements Matrix
+
+$$\text{Launch Count} = \left\lceil \frac{M_{dry} + M_{propellant} + M_{overhead}}{M_{payload\_per\_launch}} \right\rceil$$
 
 ```
-LAUNCH 1: Aft Spine Truss + Reactor Core + NTP Engines (450 MT wet)
-    |
-LAUNCH 2: Central Propellant Tank Modules (350 MT dry structure)
-    |  ===> [Robotic Laser Welding & APAS Structural Latching in LEO]
-LAUNCH 3: Forward Habitat Cylinder + Centrifuge Ring (220 MT)
-    |  ===> [Pressurization, Helium Leak Test & Power Coupling]
-LAUNCH 4: Deployable Radiator Booms & Consumable Depots (1,800 MT propellant)
-    |  ===> [Fully Commissioned Ship Ready for Departure]
+                                 TOTAL LAUNCHES REQUIRED
+  40 ────────────────────────────────────────────────────────────────────────── (40 Launches)
+  35 ──────────────────────────────────────────────────────────────────────────
+  30 ────────────────────────────────────────── (27 Launches) ─────────────────
+  25 ──────────────────────────────────────────────────────────────────────────
+  20 ────────────── (16 Launches) ─────────────────────────────────────────────
+  15 ──────────────────────────────────────────────────────────────────────────
+  10 ──────────────────────────────────────────────────────────────────────────
+   0 ─────────── Case A (250t) ─────────────── Case B (150t) ─────────── Case C (100t) ───────────
 ```
 
-1. **Launch Sequence (Unit 100 Baseline):** 4 launches using $250\text{ MT}$ class heavy reusable launch vehicles.
-2. **Autonomous Orbital Docking:** Modules execute automated laser-guided rendezvous, APAS mechanical latching, and automated ring welding by orbital RMS manipulator drones.
-3. **Refurbishment Cycle (1,000-Day Turnaround):** After mission completion, the vehicle returns to LEO. The reactor core is inspected, radiator cassettes are swapped via RMS drones ($48\text{ hours}$ turnaround), propellant tanks are refueled, and ECLSS filter cassettes are replaced without scrapping the primary structural spine.
+| Logistics Case | Payload Capacity per Launch | Hardware Launches | Tanker Launches | Total Launches | Orbital Assembly Duration | Launch Campaign Cost ($250/kg) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Case A (Baseline 250t)** | $250\text{ MT}$ / launch | 6 Launches | 10 Launches | **16 Launches** | $4.5\text{ Months}$ ($8\text{ days/launch}$) | $\$992.7\text{ Million}$ |
+| **Case B (Alternative 150t)** | $150\text{ MT}$ / launch | 10 Launches | 17 Launches | **27 Launches** | $7.5\text{ Months}$ ($8\text{ days/launch}$) | $\$992.7\text{ Million}$ |
+| **Case C (Alternative 100t)** | $100\text{ MT}$ / launch | 15 Launches | 25 Launches | **40 Launches** | $11.0\text{ Months}$ ($8\text{ days/launch}$) | $\$992.7\text{ Million}$ |
 
 ---
 
-## 4. Recurring Cost Model Justification
+## 3. Orbital Assembly Pipeline & Manufacturing Cadence
 
-* **Bill of Materials (BOM) Raw Cost:** $1,422.4\text{ MT}$ stainless steel, Al-Li, titanium, tungsten, and composite raw stock $= \$85\text{ Million}$.
-* **Reactor Core & Nuclear Fuel (Enriched Uranium/HALEU):** $\$120\text{ Million}$.
-* **Avionics, Sensors & Computing:** $\$65\text{ Million}$.
-* **ECLSS & Life Support Hardware:** $\$45\text{ Million}$.
-* **Propulsion Engines (4x NTP + MPD Array):** $\$110\text{ Million}$.
-* **Assembly, Robotics & QA Labor (180k hrs @ $500/hr):** $\$90\text{ Million}$.
-* **Launch Operations (4 Launches @ $40M/launch):** $\$160\text{ Million}$.
-* **Total Unit 100 Recurring Cost:** **$\$675\text{ Million USD}$** (Rounding up to **$\$680\text{ Million USD}$** baseline).
-* **Conclusion:** The $\$680\text{M}$ recurring unit cost target is physically and economically achievable at Unit 100 production scale.
+```
+[LEO DOCKING NODE] ──> 1. Truss Spine Unfurling ──> 2. Tank Installation ──> 3. Reactor Attachment
+                            │
+[1,000 DAY MISSION] <── 6. Propellant Loading <── 5. Habitat Integration <── 4. Radiator Deployment
+```
+
+1. **Phase 1 — Primary Spine & Power Station (Launches 1–3):** Spine truss unfurled in LEO. Fast fission reactor attached $380\text{m}$ aft with conical shadow shield.
+2. **Phase 2 — Cryogenic Tankage & Structure (Launches 4–6):** Insulated $6.5\text{mm}$ SS 316L pressure tanks mated to spine nodes.
+3. **Phase 3 — Habitat, Centrifuge & Shielding (Launches 7–10):** Forward habitat cylinder, transverse centrifuge ring, and water/HDPE storm shelter integrated.
+4. **Phase 4 — Cryogenic Tanker Fleet Operations (Launches 11–16):** Automated zero-boiloff transfer of $2,200\text{ t}$ $\text{LH}_2$ and $300\text{ t}$ $\text{LNH}_3$.
+5. **Phase 5 — Integrated System Checkout:** Robotic inspection drones verify welds, leak rates, and bus continuity prior to crew departure.

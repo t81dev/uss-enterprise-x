@@ -1,50 +1,61 @@
-# 33 — Architecture Convergence & Design Matrix v2
+# 33 — Architecture Convergence & Model Closure Status (v2 Reconciled)
 
 **Document ID:** `33-architecture-convergence.md`
-**Purpose:** Integrated Convergence Synthesis across 12 Core Systems Domains Following Quantitative V2 Re-alignment
-**Baseline Vehicle:** USS Enterprise X ($M_{dry} = 1,422.4\text{ MT}$, $M_{dep} = 3,947.4\text{ MT}$)
+**Baseline Vehicle:** USS Enterprise X (Project Occam-7)
+**Convergence Status:** **CONDITIONALLY CLOSED**
+**Primary Driver:** Hybrid Dual-Mode Propulsion (NTP + NEP) with 16-Launch LEO Assembly Sequence
 
 ---
 
-## 1. Design Convergence Matrix
+## 1. Updated Architecture Convergence Matrix
 
-| Domain | Current Choice (v2 Baseline) | Confidence | Main Risk | Next Quantitative Proof Required |
-|---|---|---|---|---|
-| **Hull** | Modular Long-Axis Central Spine ($380\text{m}$) with $8\text{m} \times 30\text{m}$ Pressure Vessel | High | Structural joint flexing under dynamic thrust | Finite-element nodal stress analysis under combined thrust and RCS torsion |
-| **Structure** | Octagonal welded 316L SS / Carbon-Composite Open Frame Truss | High | MMOD member buckling / thermal growth strain | Full-scale truss coupon buckling vibration testing |
-| **Propulsion** | Dual-Mode Hybrid: 4x NTP ($1,000\text{ kN}, 900\text{ s}$) + 4x NEP MPD ($80\text{ N}, 3,500\text{ s}$) | High | Hydrogen turbopump wear & zero-loss cryocooler boiloff | Multi-megawatt MPD plasma erosion endurance test ($>10,000\text{ hours}$) |
-| **Power** | $100\text{ MWth} / 20\text{ MWe}$ Fast Fission Core + Supercritical $CO_2$ Brayton Cycle | High | Turbogenerator dynamic bearing degradation in zero-g | Closed-loop $sCO_2$ Brayton loop zero-g flight demonstration |
-| **Thermal** | Deployable Carbon-Composite Heat-Pipe Wings ($2,878.2\text{ m}^2$, $850\text{ K}$ NaK) | High | Hypervelocity MMOD puncture causing NaK fluid loss | High-speed pyrotechnic manifold isolation valve firing test ($<200\text{ ms}$) |
-| **Radiation** | SPE Central Storm Shelter ($52.75\text{ g/cm}^2$) + Ambient Water Tanks ($20\text{ g/cm}^2$) | High | GCR heavy-ion secondary spallation in metal hull | Monte Carlo N-Particle (MCNP) transport code shielding validation |
-| **Gravity** | Dual-Mode: $56\text{m}$ Deployable Tether ($1.0\text{ g}$) + $30\text{m}$ Internal Mag-Lev Ring ($0.6\text{ g}$) | Medium | Dynamic imbalance & tether recoil during retraction | Full-scale mag-lev ring bearing vibration & counter-torque test |
-| **Habitat** | 3-Deck Cylindrical Module ($1,850\text{ m}^3$ Pressurized Vol, $77\text{ m}^3/\text{person}$) | High | ECLSS solid waste / salt sludge buildup over 1,000 days | High-temperature catalytic sludge oxidizer long-duration test |
-| **Autonomy** | ShipOS 6-Tier Domain-Isolated DDRTOS (Tier 1 Hard Real-Time Interlocks) | High | Software edge-case deadlock under multi-sensor fault | Formal software model-checking & TMR fault-injection simulation |
-| **Manufacturing**| 6 Standardized Ground Production Cells + 4-Launch LEO Autonomous Assembly | Medium | LEO automated robotic laser welding CT inspection quality | Orbital autonomous RMS truss welding flight experiment |
-| **Mission** | Mission B Earth-Mars-Earth ($16\text{ km/s} \Delta V$, $1,000\text{ Days}$, $3,947\text{ MT}$ departure) | High | Mars atmospheric skip entry heat shield ablation | 3D hypersonic aerocapture trajectory Monte Carlo simulation |
-| **Economics** | Unit 001 Prototype at $\$8.5\text{B}$; Unit 100 Serial Production at $\$680\text{M}$ per ship | Medium | Launch vehicle cadence & high-volume HALEU fuel supply | Gigafactory automated tooling supply-chain cost auditing |
+Following the post-merge forensic audit, previous claims of unconditional "closure" were revoked due to active quantitative contradictions in structural tank hoop stress, NEP thrust-power coupling, and orbital launch logistics.
 
----
+With all mathematical formulas and dependent budgets reconciled, the architecture is designated as **CONDITIONALLY CLOSED**.
 
-## 2. Integrated Summary of Formal ADR Revisions
-
-### ADR-001a: Primary Structural Configuration Re-affirmation
-* **Status:** Re-affirmed and updated in `28-structural-load-path.md`.
-* **Modification:** Confirmed $380\text{m}$ octagonal space-frame spine truss as primary load path with 4-fold hyperstatic structural redundancy, resisting $4,000\text{ kN}$ thrust load with safety factor $>9.5\times$.
-
-### ADR-002a: Artificial Gravity Strategy Revision
-* **Status:** Revised in `26-artificial-gravity-trade.md`.
-* **Modification:** Replaced the $12\text{m}$ internal centrifuge ($10\text{ RPM}$) with a dual-mode system ($56\text{m}$ tether rotation yielding $1.0\text{ g}$ at $4\text{ RPM}$ during cruise, supplemented by a $30\text{m}$ transverse mag-lev ring yielding $0.6\text{ g}$ at $6\text{ RPM}$ during orbital stay). Eliminates Coriolis nausea limits.
-
-### ADR-003a: Radiation Shielding Architecture Extension
-* **Status:** Extended in `27-radiation-protection-model.md`.
-* **Modification:** Separated SPE protection (central storm shelter at $52.75\text{ g/cm}^2$) from long-duration GCR background mitigation (circumferential water tanks at $20\text{ g/cm}^2$ plus axial propellant tankage buffer $>200\text{ g/cm}^2$).
+| Subsystem Budget | v1 / Unreconciled Status | v2 Reconciled Baseline | Closure Status | Frontier / Revisit Risk Factor |
+| :--- | :--- | :--- | :---: | :--- |
+| **Mass Closure** | Subtotal mismatch ($1,185.3\text{t}$ vs $1,157.0\text{t}$) | $1,225.80\text{t}$ Unmargined / $1,470.96\text{t}$ Dry / $3,970.96\text{t}$ Departure | **CLOSED** | Requires $20\%$ growth reserve margin |
+| **Structural Tank Sizing** | Hoop stress $225\text{ MPa}$ ($4\text{mm}$ wall) > $220\text{ MPa}$ yield | $6.5\text{mm}$ SS 316L wall, $\sigma_\theta = 138.5\text{ MPa}$ ($1.59\times$ SF) | **CLOSED** | Tank dry mass increased by $+68.75\text{ MT}$ |
+| **NEP Propulsion & Delta-V** | $80\text{ N}$ @ $15\text{ MWe}$ ($0.73\text{ km/s}$ trajectory) | $568.1\text{ N}$ @ $15\text{ MWe}$ ($9.75\text{ MW}_{jet}$, $5.39\text{ km/s}$ cruise) | **CLOSED** | MPD thruster electrode erosion at $15\text{ MWe}$ |
+| **Power & Energy** | $20\text{ MWe}$ output / $15\text{ MWe}$ NEP / $5\text{ MWe}$ House | $100\text{ MW}_{th}$ Fast Reactor / $20.0\text{ MWe}$ Brayton output | **CLOSED** | Closed-loop Brayton turbine long-term wear |
+| **Thermal Rejection** | $83.45\text{ MW}_{th}$ total waste heat | $2,502.8\text{ m}^2$ panel footprint ($6.75\text{ MT}$ mass) | **CLOSED** | Micrometeoroid perforation of NaK heat pipes |
+| **Radiation Shielding** | $44.75\text{ g/cm}^2$ (missing steel hull) | $52.25\text{ g/cm}^2$ multi-layer SPE shelter ($73.1\text{ MT}$) | **CLOSED** | Deep-space secondary neutron production |
+| **Artificial Gravity** | Omitted $v^2/r$ walking term | $15\text{m}$ centrifuge @ $6.0\text{ RPM}$ ($0.60\text{g}$ static, $0.81\text{g}$ walk) | **CLOSED** | Mag-lev bearing dynamic resonance |
+| **Launch Logistics** | Unphysical $4\text{ launches}$ claim ($1,000\text{t}$ capacity) | **16 Heavy Reusable Launches** ($250\text{t}$ LEO class) | **CONDITIONALLY CLOSED** | Depends on $250\text{t}$ payload cadence & LEO tankers |
 
 ---
 
-## 3. Stability Assessment of the Architecture
+## 2. Mass-Reduced Architecture Trade: Enterprise X Pathfinder
 
-* **Converged Subsystems (High Stability):** Power Generation, Thermal Radiator Sizing, Mass Budget, Trajectory / Delta-V Closure, Structural Load Paths, ShipOS Control Isolation.
-* **Refined Subsystems (Medium Stability):** Artificial Gravity Mechanism, Orbital Robotic Assembly Sequence, Manufacturing Cost Scaling.
-* **Frontier Isolates (Deferred to Branch Annexes):** Room-temperature Fusion Drives, Metric Space-Warp / FTL Propulsion, Superconducting Active Magnetic Deflectors.
+To mitigate the programmatic risk of a 16-launch, $3,970.96\text{ t}$ departure vessel, a **mass-reduced alternative baseline** ("Enterprise X — Pathfinder") is evaluated alongside the Expeditionary baseline.
 
-The baseline vehicle is now quantitatively closed and physically consistent across physics, thermal dynamics, structure, mass budgets, and mission trajectories.
+```
+[EXPEDITIONARY BASELINE]                      [PATHFINDER ALTERNATIVE]
+  Crew: 24 Members                                Crew: 6 Members
+  Duration: 1,000 Days                            Duration: 300 Days (Mars Flyby/Short Stay)
+  Departure Mass: 3,970.96 MT                     Departure Mass: 785.0 MT
+  Launches Required: 16 (250t class)              Launches Required: 3 (250t class)
+  Reactor Output: 100 MWth / 20 MWe               Reactor Output: 20 MWth / 4 MWe
+```
+
+### Quantitative Comparison Matrix
+
+| Architecture Metric | Full Expeditionary Baseline | Pathfinder Alternative | Programmatic Impact / Tradeoff |
+| :--- | :---: | :---: | :--- |
+| **Crew Complement** | 24 Crew Members | 6 Crew Members | $75\%$ reduction in ECLSS volume & food mass |
+| **Mission Horizon** | $1,000\text{ Days}$ Full Exploration | $300\text{ Days}$ Mars Flyby/Orbit | Reduces cumulative GCR radiation dose |
+| **Unmargined Dry Mass** | $1,225.80\text{ MT}$ | $285.0\text{ MT}$ | $4.3\times$ mass reduction |
+| **Propellant Mass** | $2,500.0\text{ MT}$ | $500.0\text{ MT}$ | $5.0\times$ propellant mass reduction |
+| **Departure Wet Mass ($M_{dep}$)** | **3,970.96 MT** | **785.0 MT** | Fits in 3 launches instead of 16 |
+| **Nuclear Reactor Output** | $100\text{ MW}_{th}$ / $20\text{ MWe}$ | $20\text{ MW}_{th}$ / $4\text{ MWe}$ | Smaller reactor core & radiator footprint |
+| **Launch Count ($250\text{t}$ Class)** | **16 Heavy Launches** | **3 Heavy Launches** | Lowers launch campaign risk by $81\%$ |
+
+---
+
+## 3. Explicit Frontier Dependencies & Conditionality Statement
+
+The Enterprise X Full Expeditionary Architecture is closed under the following explicit engineering conditions:
+1. **$250\text{ t}$ Heavy Reusable Launch Availability:** Successful industrial operation of super-heavy launch systems delivering $\ge 250\text{ t}$ payload to LEO at $< \$250/\text{kg}$.
+2. **Zero-Boiloff LH2 Management:** Cryogenic storage of $2,200\text{ MT}$ $\text{LH}_2$ over 1,000 days with active cryocooling power $< 80\text{ kW}_e$.
+3. **Multi-Megawatt MPD Thruster Lifespan:** Electrode cathode wear rates allowing continuous high-power discharge for $15.55\text{ Ms}$ ($180\text{ days}$) per transit leg.
