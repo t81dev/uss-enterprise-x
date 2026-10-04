@@ -1,58 +1,35 @@
-# 23 — Integrated Thermal Budget v2
+# 23 — Thermal Management System & Rejection Budget (Reconciled v2)
 
 **Document ID:** `23-thermal-budget-v2.md`
-**Primary Thermodynamics Governing Equation:** Stefan-Boltzmann Radiative Rejection
-$$P_{rad} = 2 \cdot A_{panel} \cdot \epsilon \cdot \sigma \cdot T^4$$
-where $\sigma = 5.670374419 \times 10^{-8}\text{ W/(m}^2\text{K}^4)$, emissivity $\epsilon = 0.88 - 0.90$, $T$ is temperature in Kelvin, and double-sided radiation factor $= 2$.
+**Primary Heat Source:** $100\text{ MW}_{th}$ Fast Fission Reactor Waste Heat
+**Total Rejection Requirement:** $83.45\text{ MW}_{th}$ ($80.0\text{ MW}_{th}$ Reactor + $3.45\text{ MW}_{th}$ Conversion/House)
+**Radiator Operating Temperature:** $850\text{ K}$ High-Temp Reactor Loop / $295\text{ K}$ Habitat Loop
+**Total Radiator Panel Footprint Area:** $2,502.8\text{ m}^2$ (One-sided) / $5,005.6\text{ m}^2$ Effective (Double-sided)
 
 ---
 
-## 1. Waste Heat Inventory & Radiator Sizing
+## 1. Subsystem Waste Heat Rejection & Radiator Sizing
 
-| Subsystem Waste Source | Waste Heat $Q_{th}$ (kWth) | Operating Temp $T$ (K) | Emissivity $\epsilon$ | Radiated Flux (kW/m² single side) | Required Footprint Area $A_{panel}$ (m²) | Dry Radiator Mass (MT) | Cooling Loop Fluid Mechanism |
-|---|---:|---:|---:|---:|---:|---:|---|
-| **Main Nuclear Core Waste Heat** | 80,000.0 | 850 K | 0.90 | 26.64 | 1,726.7 | 3.11 | Liquid NaK ($783\text{ K} - 873\text{ K}$) Heat Pipes |
-| **NEP Power Conversion Losses** | 3,000.0 | 650 K | 0.90 | 9.11 | 189.4 | 0.28 | Carbon-composite / Potassium Heat Pipes |
-| **Avionics & Compute Bus** | 50.0 | 320 K | 0.88 | 0.52 | 54.9 | 0.12 | Deionized Water Heat Pipes |
-| **Habitat Life Support & HVAC** | 200.0 | 295 K | 0.88 | 0.38 | 304.3 | 0.76 | Dual-loop Ammonia / Water heat exchangers |
-| **ECLSS Recycling Loop** | 120.0 | 310 K | 0.88 | 0.46 | 149.7 | 0.33 | Water / Glycol loop |
-| **Scientific Workshop & Payload** | 80.0 | 330 K | 0.88 | 0.59 | 77.7 | 0.16 | Local Heat Pipes |
-| **SUBTOTAL UNMARGINED** | **83,450.0** | **—** | **—** | **—** | **2,502.8** | **4.76** | **Integrated Rejection Loops** |
-| **System Margin (+15% Degradation/MMOD)**| — | — | — | — | 375.4 | 1.90 | Micrometeoroid degradation allocation |
-| **TOTAL THERMAL MANAGEMENT SYSTEM** | **83,450.0** | **—** | **0.90 avg** | **—** | **2,878.2 m²** | **26.66 MT** | **Dry Panels (6.66t) + Booms/Fluid (20.0t)** |
+Radiator surface area is derived using the Stefan-Boltzmann law with double-sided panel emission ($\epsilon = 0.90$, $15\%$ degradation margin):
+$$Q_{radiated} = 2 \cdot A_{panel} \cdot \epsilon \cdot \sigma \cdot T^4$$
 
----
-
-## 2. Radiator Panel Geometry & Deployment Mechanics
-
-```
-====================================== CENTRAL SPINE (380m) ======================================
-                      |                                              |
-     [HABITAT & ECLSS RADIATORS]                     [MAIN REACTOR HIGH-TEMP RADIATORS]
-     (295K-330K, 666 m² footprint)                   (850K NaK, 1,727 m² footprint)
-     2x Wings (40m length x 8.3m width)             2x Wings (110m length x 7.85m width)
-                      |                                              |
-==================================================================================================
-```
-
-* **Individual Panel Sizing:** Standardized $2.0\text{m} \times 4.0\text{m}$ deployable composite heat-pipe cassettes. Total panel count: 360 panels.
-* **Deployable Boom Layout:** Radiators deploy laterally in two planar wings along non-thrust axes to minimize solar flux trapping and thrust plume impingement.
-* **High-Temperature Reactor Array:** $110\text{m}$ length along aft spine $\times 7.85\text{m}$ width per wing ($1,727\text{ m}^2$).
-* **Low-Temperature Habitat Array:** $40\text{m}$ length along forward spine $\times 8.33\text{m}$ width per wing ($666\text{ m}^2$).
-* **Total Spine Footprint Occupied:** $150\text{m}$ along the $380\text{m}$ central spine, fitting comfortably within vehicle axial length without overlapping propellant tanks or habitat windows.
+| Subsystem Heat Source | Waste Heat ($Q_{th}$) | Operating Temp ($T$) | Emissivity ($\epsilon$) | Specific Flux ($\text{kW/m}^2$) | One-Sided Footprint Area ($\text{m}^2$) | Radiator Panel Dry Mass ($\text{MT}$) |
+| :--- | ---:| ---:| ---:| ---:| ---:| ---:|
+| **Main Reactor Waste Heat** | $80,000.0\text{ kW}_{th}$ | $850\text{ K}$ | $0.90$ | $26.65\text{ kW/m}^2$ | $1,725.8\text{ m}^2$ | $3.11\text{ MT}$ |
+| **NEP MPD Thruster Losses** | $5,250.0\text{ kW}_{th}$ | $650\text{ K}$ | $0.90$ | $9.11\text{ kW/m}^2$ | $331.2\text{ m}^2$ | $0.50\text{ MT}$ |
+| **Brayton Conversion Losses** | $3,000.0\text{ kW}_{th}$ | $650\text{ K}$ | $0.90$ | $9.11\text{ kW/m}^2$ | $189.3\text{ m}^2$ | $0.28\text{ MT}$ |
+| **Habitat Life Support (ECLSS)** | $200.0\text{ kW}_{th}$ | $295\text{ K}$ | $0.88$ | $0.380\text{ kW/m}^2$ | $151.3\text{ m}^2$ | $0.38\text{ MT}$ |
+| **Avionics & Optical Compute** | $50.0\text{ kW}_{th}$ | $320\text{ K}$ | $0.88$ | $0.523\text{ kW/m}^2$ | $27.5\text{ m}^2$ | $0.06\text{ MT}$ |
+| **Payload & Machine Shop** | $150.0\text{ kW}_{th}$ | $330\text{ K}$ | $0.88$ | $0.591\text{ kW/m}^2$ | $77.7\text{ m}^2$ | $0.16\text{ MT}$ |
+| **SUBTOTAL RADIATOR PANELS** | **88,650.0 $\text{kW}_{th}$** | **Various** | **0.88–0.90** | **Various** | **2,502.8 $\text{m}^2$** | **4.49 MT** |
+| **Booms, Fluid & Manifolds (+50%)** | — | — | — | — | — | **2.26 MT** |
+| **TOTAL THERMAL HARDWARE MASS** | — | — | — | — | — | **6.75 MT** |
 
 ---
 
-## 3. Coolant Inventory & Transport Architecture
+## 2. Geometric Layout & Deployment Integration
 
-1. **Primary High-Temp Loop:** Sodium-Potassium eutectic ($\text{NaK-78}$, freezing point $-12.6^\circ\text{C}$, boiling point $785^\circ\text{C}$). Total fluid inventory: $8.5\text{ MT}$.
-2. **Intermediate Transport Loop:** Heat pipes with sintered powder wicks and potassium working fluid transfer heat from reactor Brayton heat exchangers to deployable wing manifolds.
-3. **Low-Temp Loop:** Anhydrous ammonia ($\text{NH}_3$) external loop isolated from pressurized habitat spaces via intermediate water/glycol heat exchangers ($4.5\text{ MT}$ fluid inventory).
-4. **Emergency Thermal Storage Capacity:** Phase-Change Material (PCM) paraffin / lithium fluoride thermal storage sinks ($15\text{ GJ}$ capacity) capable of absorbing $30\text{ minutes}$ of unrejected core heat during sudden radiator manifold isolation events.
-
----
-
-## 4. Radiator Integration & Geometric Verification
-
-* **Geometric Fit Confirmation:** The required $2,878.2\text{ m}^2$ panel footprint requires $150\text{m}$ of linear axial length along the $380\text{m}$ spine truss.
-* **Conclusion:** The quantitative radiator architecture fits cleanly on the modular central spine without requiring hull modifications or extra boom extensions.
+1. **Deployment Architecture:** Thermal radiators are deployed symmetrically along two lateral wings ($+\text{Y}$ and $-\text{Y}$ axes) cantilevered from the central spine truss.
+2. **Physical Footprint:** With a designated deployment length of $150.0\text{ m}$ along the central spine section ($X = 60\text{ m}$ to $X = 210\text{ m}$):
+   $$\text{Required Panel Width per Wing} = \frac{2,502.8\text{ m}^2}{2 \times 150.0\text{ m}} = \mathbf{8.34\text{ m}}$$
+3. **Structural Integration:** Dual $8.34\text{ m} \times 150.0\text{ m}$ wings fold flat against the octagonal spine truss during launch and orbit assembly, deploying via active tensioning booms after reactor startup.
