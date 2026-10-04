@@ -2,7 +2,7 @@
 
 **Document ID:** `64-mars-propellant-depot-v1.md`
 **Calculation Engine Source:** `engineering/calculations/mars_isru.py`
-**Program Phase:** Phase 8 — Mars ISRU, Propellant Logistics & Physical Mission Closure
+**Program Phase:** Phase 8.1 — Mars ISRU, Propellant Logistics & Physical Mission Closure (Remediated)
 **Program Status:** **ENGINEERINGALLY CONDITIONAL (Depot Storage Architecture Verified)**
 
 ---
@@ -11,7 +11,7 @@
 
 `64-mars-propellant-depot-v1.md` defines the manufacturing, long-term cryogenic storage, fluid transfer, and propellant loading architecture for the $2,760.80\text{ MT}$ Liquid Hydrogen ($\text{LH}_2$) return inventory produced on Mars for USS Enterprise X.
 
-Achieving zero unvented boiloff ($\text{ZBO}$) for liquid hydrogen ($20.28\text{ K}$ boiling point) on the Martian surface over a 500-to-750-day production window requires active refrigeration. This document details the surface storage tank geometry, MLI insulation performance, Reverse Brayton ZBO cryocooler electrical loads, automated transfer lines, and orbital loading logistics under **Architecture B (Precursor Autonomous Robotic ISRU Depot)**.
+Achieving zero unvented boiloff ($\text{ZBO}$) for liquid hydrogen ($20.28\text{ K}$ boiling point) on the Martian surface over a 500-to-750-day production window requires active refrigeration. This document details the surface storage tank geometry, MLI insulation performance, Reverse Brayton ZBO cryocooler electrical loads, automated transfer lines, and orbital loading logistics under **Architecture B (Precursor Autonomous Robotic ISRU Depot - 2x 150t Landers)**.
 
 ---
 
@@ -72,18 +72,22 @@ Allocating **$175.80\text{ kWe}$ continuous electrical power** from the $25.0\te
 
 ## 5. Propellant Transfer & Tank Loading Mechanics
 
-Transferring $2,200\text{ MT}$ of liquid hydrogen from the surface depot to Enterprise X tanks involves three distinct loss phenomena:
+Transferring liquid hydrogen from the surface depot to Enterprise X tanks involves three distinct loss phenomena:
 
-1. **Transfer Line Chilldown:** Cooling $1,200\text{ m}$ of vacuum-jacketed stainless steel lines from $210\text{ K}$ to $20\text{ K}$ consumes $23.20\text{ MT}$ of $\text{LH}_2$ heat capacity ($1.0\%$ line chilldown loss).
-2. **Flash Evaporation:** Initial contact of $\text{LH}_2$ with Enterprise X tank walls ($T_{wall} \approx 50\text{ K}$ pre-cooled) causes flash evaporation of $34.80\text{ MT}$ ($1.5\%$ flash loss), which is captured by the ZBO vapor recovery loop and re-liquefied.
-3. **Trapped Residuals & Ullage:** Unusable sump liquid wetting and NPSH pump margins account for $46.40\text{ MT}$ ($2.0\%$ residual + ullage allowance).
+1. **Transfer Line Chilldown:** Cooling $1,200\text{ m}$ of vacuum-jacketed stainless steel lines consumes $1.0\%$ ($22.77\text{ MT}$) of transferred mass.
+2. **Flash Evaporation:** Initial contact of $\text{LH}_2$ with tank walls causes flash evaporation of $1.5\%$ ($34.16\text{ MT}$).
+3. **Trapped Residuals & Ullage:** Unusable sump wetting and NPSH pump margins account for $1.0\%$ ($22.77\text{ MT}$).
+4. **Total Transfer Loss:** $3.5\%$ ($79.70\text{ MT}$ total loss). Net reloaded propellant delivered to spacecraft tanks = **$2,197.30\text{ MT}$ $\text{LH}_2$**. Remaining verified surface depot inventory = **$449.00\text{ MT}$**.
 
 ---
 
 ## 6. Storage & Transfer Summary
 
 * **Gross Manufactured Inventory:** $2,760.80\text{ MT}$
+* **Surface ZBO Storage Boiloff (500d):** $34.80\text{ MT}$
+* **Peak Verified Depot Inventory:** $2,726.00\text{ MT}$
 * **Surface ZBO Cryocooler Power Load:** $175.80\text{ kWe}$
-* **Unvented Surface Storage Loss Rate:** $0.00\%/\text{day}$ (Active ZBO)
-* **Net Reload Delivered to Enterprise X:** **$2,200.00\text{ MT}$**
-* **Depot Storage Architecture Status:** **FULLY VERIFIED**
+* **Gross Refueling Debit:** $2,277.00\text{ MT}$
+* **Transfer Losses (Chilldown + Flash + Residuals):** $79.70\text{ MT}$
+* **Net Reload Delivered to Enterprise X:** **$2,197.30\text{ MT}$**
+* **Depot Storage Architecture Status:** **FULLY VERIFIED & MASS CONSERVED**

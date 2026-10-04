@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 Automated System Consistency & Sequential Digital Twin Test Suite for Project Occam-7
-Updated for Program Phase 8 — Mars ISRU, Propellant Logistics & Mission Closure.
+Updated for Program Phase 8.1 — Codex P1/P2 Defect Remediation & Mission Integrity.
 
 Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests,
 thermal/power state machines, launch logistics, centrifuge dynamics, mass conservation, vector kinematics,
 numerical vs analytical rocket equation agreement, cryogenic boiloff, crew health models,
 Mars ISRU water/hydrogen conservation, electrolysis thermodynamics, liquefaction power,
-radiator thermal closure, surface timeline closure, and machine-readable mission success predicates.
+radiator thermal closure, surface timeline closure, machine-readable mission success predicates,
+and Phase 8.1 explicit precursor/crewed safety gates & negative failure tests (Tests A through G).
 """
 
 import math
@@ -18,7 +19,7 @@ from mass_budget import calculate_mass_budget
 from centrifuge_calculator import analyze_centrifuge
 from shielding_estimator import shielding_calculator
 from radiator_sizing import calculate_radiator_area
-from mission_digital_twin import MissionDigitalTwin, SpacecraftState
+from mission_digital_twin import MissionDigitalTwin, SpacecraftState, PrecursorDepotState
 from earth_mars_transfer import EarthMarsTransferSolver, MU_SUN, MU_EARTH, MU_MARS, R_EARTH_ORBIT, R_MARS_ORBIT
 from mars_isru import MarsISRUModel, KG_WATER_PER_KG_H2, KG_O2_PER_KG_H2, DELTA_H_ELECTROLYSIS_KWH_PER_KG
 
@@ -62,7 +63,7 @@ class TestSystemConsistency(unittest.TestCase):
         lh2_burned = sum(e.get("lh2_burned_mt", 0.0) for e in twin.event_log)
         lnh3_burned = sum(e.get("lnh3_burned_mt", 0.0) for e in twin.event_log)
         boiloff_lost = twin.state.cumulative_boiloff_loss_mt
-        isru_reloaded = twin.state.lh2_reloaded_to_ship_mt
+        isru_reloaded = twin.depot.lh2_transferred_to_ship_mt
         m_final = twin.state.gross_mass_mt
 
         consumables_lost = 72.3 - twin.state.crew_consumables_mt
@@ -149,10 +150,11 @@ class TestSystemConsistency(unittest.TestCase):
         predicates = res["success_predicate_assessment"]
 
         self.assertTrue(predicates["mission_success"])
+        self.assertTrue(predicates["predicates"]["earth_departure_authorized"])
         self.assertTrue(predicates["predicates"]["earth_departure_achieved"])
         self.assertTrue(predicates["predicates"]["mars_encounter_achieved"])
         self.assertTrue(predicates["predicates"]["return_propellant_manufactured"])
-        self.assertTrue(predicates["predicates"]["earth_return_achieved"])
+        self.assertTrue(predicates["predicates"]["return_trajectory_closes"])
 
     def test_thermal_radiator_stefan_boltzmann_balance(self):
         """Verify radiator surface area calculation under Stefan-Boltzmann law."""
@@ -219,7 +221,7 @@ class TestSystemConsistency(unittest.TestCase):
         res = model.run_full_isru_model()
 
         budget = res["mars_surface_power_budget"]["itemized_power_budget"]
-        total_avg_mwe = res["mars_surface_power_budget"]["total_surface_avg_mwe"]
+        total_avg_mwe = res["mars_surface_power_budget"]["required_average_power_mwe"]
 
         sum_kw = sum(v["avg_kw"] for v in budget.values())
         self.assertAlmostEqual(sum_kw / 1000.0, total_avg_mwe, delta=0.1)
@@ -252,24 +254,131 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertAlmostEqual(lh2_day, (2760.8 * 1000.0) / 500.0, delta=1.0)
         self.assertGreater(water_day, 40.0)  # > 40 tonnes water/day
 
-    def test_isru_failure_assertions(self):
-        """Phase 8 Test: Verify test assertions enforce failure when ISRU constraints are violated."""
-        # Case 1: Insufficient Power
-        state = SpacecraftState()
-        state.isru_power_closure = False
-        state.isru_plant_operational = False
-        twin = MissionDigitalTwin(initial_state=state)
-        res = twin.run_full_mission_baseline()
+    # --- PHASE 8.1 CODEX P1/P2 DEFECT REMEDIATION REGRESSION SUITE ---
+
+    def test_a_zero_precursor_inventory_fails_departure(self):
+        """Test A: Zero precursor inventory must fail crew departure."""
+        twin = MissionDigitalTwin()
+        # Do not run precursor mission -> zero inventory
+        res = twin.run_crewed_mission()
+        self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
+        self.assertFalse(res["gate_status"]["required_LH2_available"])
         self.assertFalse(res["success_predicate_assessment"]["mission_success"])
 
-        # Case 2: Insufficient LH2 Produced
-        state2 = SpacecraftState()
-        state2.isru_plant_operational = False
-        state2.lh2_produced_mt = 1000.0 # Only 1000 t produced
-        state2.lh2_depot_stored_mt = 985.0
-        twin2 = MissionDigitalTwin(initial_state=state2)
-        res2 = twin2.run_full_mission_baseline()
-        self.assertFalse(res2["success_predicate_assessment"]["mission_success"])
+    def test_b_precursor_unverified_inventory_fails_departure(self):
+        """Test B: Precursor production completed but inventory not verified must fail crew departure."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+        twin.depot.depot_verified = False # Intentionally unverify
+        res = twin.run_crewed_mission()
+        self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
+        self.assertFalse(res["gate_status"]["depot_verified"])
+
+    def test_c_verified_inventory_below_requirement_fails_departure(self):
+        """Test C: Verified inventory below requirement must fail crew departure."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+        twin.depot.lh2_verified_inventory_mt = 2199.0 # 1t below required 2200t
+        res = twin.run_crewed_mission()
+        self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
+        self.assertFalse(res["gate_status"]["required_LH2_available"])
+
+    def test_d_verified_inventory_above_requirement_permits_departure(self):
+        """Test D: Verified inventory above requirement must permit departure."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+        res = twin.run_crewed_mission()
+        self.assertNotIn("status", res) # Successfully executed without Earth abort
+        self.assertTrue(res["success_predicate_assessment"]["mission_success"])
+
+    def test_e_crewed_mission_cannot_create_precursor_inventory(self):
+        """Test E: Crewed mission cannot create precursor inventory."""
+        twin = MissionDigitalTwin()
+        # Uninitialized precursor depot
+        self.assertEqual(twin.depot.lh2_produced_mt, 0.0)
+        res = twin.run_crewed_mission()
+        self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
+        # Ensure crewed mission execution attempt did not magically manufacture propellant
+        self.assertEqual(twin.depot.lh2_produced_mt, 0.0)
+
+    def test_f_running_precursor_separately_and_passing_state_permits_departure(self):
+        """Test F: Running precursor separately and then passing verified state into crewed mission permits departure."""
+        twin_precursor = MissionDigitalTwin()
+        precursor_output = twin_precursor.run_precursor_mission()
+        self.assertEqual(precursor_output["state"], PrecursorDepotState.DEPOT_VERIFIED)
+
+        twin_crewed = MissionDigitalTwin()
+        twin_crewed.depot = twin_precursor.depot # Explicit handoff of verified precursor depot
+        crewed_output = twin_crewed.run_crewed_mission()
+
+        self.assertTrue(crewed_output["success_predicate_assessment"]["mission_success"])
+        self.assertGreater(twin_crewed.depot.lh2_transferred_to_ship_mt, 2000.0)
+
+    def test_g_repeated_execution_cannot_duplicate_depot_inventory(self):
+        """Test G: Repeated execution cannot duplicate the same precursor inventory."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+
+        # Mission 1 consumes return propellant
+        res_m1 = twin.run_crewed_mission()
+        self.assertTrue(res_m1["success_predicate_assessment"]["mission_success"])
+
+        # Attempt Mission 2 without manufacturing new propellant
+        twin_m2 = MissionDigitalTwin()
+        twin_m2.depot = twin.depot # Pass depleted depot
+
+        res_m2 = twin_m2.run_crewed_mission()
+        self.assertEqual(res_m2["status"], "CREW DEPARTURE ABORTED ON EARTH")
+        self.assertFalse(res_m2["gate_status"]["required_LH2_available"])
+
+    def test_negative_lander_capacity_failure(self):
+        """Negative Test: Lander capacity < ISRU dry mass must fail precursor payload gate."""
+        model = MarsISRUModel()
+        gate = model.precursor_payload_closes(number_of_landers=1, capacity_per_lander_mt=150.0) # 150t capacity vs ~256t plant
+        self.assertFalse(gate["payload_closes"])
+        self.assertLess(gate["mass_margin_mt"], 0.0)
+
+    def test_negative_power_budget_insufficient(self):
+        """Negative Test: Surface nuclear power < required surface power must fail power gate."""
+        model = MarsISRUModel()
+        power_eval = model.surface_power_budget(available_power_mwe=18.0) # 18 MWe < ~20.63 MWe demand
+        self.assertFalse(power_eval["power_closes"])
+        self.assertLess(power_eval["power_margin_mwe"], 0.0)
+
+    def test_negative_peak_power_insufficient(self):
+        """Negative Test: Available power < required peak power must fail power gate."""
+        model = MarsISRUModel()
+        power_eval = model.surface_power_budget(available_power_mwe=22.0) # 22 MWe < 24.42 MWe peak
+        self.assertFalse(power_eval["power_closes"])
+
+    def test_efficiency_parameterization_monotonicity(self):
+        """Verify that SOEC & Liquefaction efficiency degradation increases power demand monotonically."""
+        model_high = MarsISRUModel(soec_efficiency=0.80, liquefaction_efficiency=0.30)
+        power_high = model_high.surface_power_budget()["required_average_power_mwe"]
+
+        model_nominal = MarsISRUModel(soec_efficiency=0.72, liquefaction_efficiency=0.25)
+        power_nominal = model_nominal.surface_power_budget()["required_average_power_mwe"]
+
+        model_low = MarsISRUModel(soec_efficiency=0.60, liquefaction_efficiency=0.20)
+        power_low = model_low.surface_power_budget()["required_average_power_mwe"]
+
+        self.assertLess(power_high, power_nominal)
+        self.assertLess(power_nominal, power_low)
+
+    def test_depot_refueling_mass_conservation_and_losses(self):
+        """Verify transfer loss accounting and mass conservation during refueling."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+
+        initial_verified = twin.depot.lh2_verified_inventory_mt
+        res = twin.execute_mars_isru_reload_and_stay("Refueling Test", target_reload_net_mt=2200.0)
+
+        debit = res["depot_debit_mt"]
+        losses = res["transfer_losses_mt"]
+        credit = res["lh2_reloaded_mt"]
+
+        self.assertAlmostEqual(debit, losses + credit, places=1)
+        self.assertAlmostEqual(twin.depot.lh2_verified_inventory_mt, initial_verified - debit, places=1)
 
 
 if __name__ == "__main__":

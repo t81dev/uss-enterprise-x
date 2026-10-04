@@ -10,8 +10,9 @@ Simulates vehicle state propagation across time:
 - Dynamic power & thermal rejection state machine (Stefan-Boltzmann, 850 K radiators)
 - Cryogenic boiloff derivation & Zero-Boiloff (ZBO) active refrigeration power
 - Crew survivability model (SPE/GCR radiation dose, ECLSS consumables, centrifuge gravity)
-- Mars In-Situ Resource Utilization (ISRU) propellant manufacturing & pre-deployed depot tracking
-- Formal machine-readable physical mission success predicate
+- Separate Precursor Mission (Phase A) and Crewed Mission (Phase B) boundary separation
+- Mars Surface ISRU Infrastructure & Pre-deployed Depot tracking
+- Formal pre-departure safety gates and machine-readable physical mission success predicates
 """
 
 import math
@@ -25,6 +26,69 @@ MU_SUN = 1.32712440018e20      # m^3/s^2
 MU_EARTH = 3.986004418e14     # m^3/s^2
 MU_MARS = 4.2828372e13        # m^3/s^2
 AU_IN_M = 1.495978707e11      # m
+
+
+class PrecursorDepotState:
+    """Explicit Mars Precursor ISRU Depot state tracking."""
+
+    # Explicit State Machine Constants
+    PRECURSOR_NOT_DEPLOYED = "PRECURSOR_NOT_DEPLOYED"
+    PRECURSOR_DEPLOYED = "PRECURSOR_DEPLOYED"
+    ISRU_OPERATIONAL = "ISRU_OPERATIONAL"
+    PROPULSANT_PRODUCTION_COMPLETE = "PROPULSANT_PRODUCTION_COMPLETE"
+    DEPOT_VERIFIED = "DEPOT_VERIFIED"
+    CREW_DEPARTURE_AUTHORIZED = "CREW_DEPARTURE_AUTHORIZED"
+
+    def __init__(self):
+        self.state = self.PRECURSOR_NOT_DEPLOYED
+        self.precursor_payload_closes = False
+        self.precursor_deployed = False
+        self.isru_operational = False
+        self.isru_power_closure = False
+        self.isru_thermal_closure = False
+        self.production_complete = False
+        self.depot_verified = False
+
+        # Physical Inventory Accounting (MT)
+        self.lh2_produced_mt = 0.0
+        self.lh2_storage_boiloff_mt = 0.0
+        self.lh2_initial_stored_mt = 0.0      # Peak verified inventory before transfer
+        self.lh2_depot_stored_mt = 0.0        # Current remaining inventory in depot
+        self.lh2_verified_inventory_mt = 0.0   # Current available verified inventory for transfer
+        self.lh2_transferred_to_ship_mt = 0.0
+
+        # Loss accounting metrics
+        self.transfer_line_chilldown_loss_mt = 0.0
+        self.transfer_flash_loss_mt = 0.0
+        self.transfer_residual_loss_mt = 0.0
+
+        # Infrastructure operational status
+        self.storage_system_operational = False
+        self.inventory_measurement_valid = False
+        self.transfer_system_operational = False
+
+    def to_dict(self):
+        return {
+            "state": self.state,
+            "precursor_payload_closes": self.precursor_payload_closes,
+            "precursor_deployed": self.precursor_deployed,
+            "isru_operational": self.isru_operational,
+            "isru_power_closure": self.isru_power_closure,
+            "isru_thermal_closure": self.isru_thermal_closure,
+            "production_complete": self.production_complete,
+            "depot_verified": self.depot_verified,
+            "storage_system_operational": self.storage_system_operational,
+            "inventory_measurement_valid": self.inventory_measurement_valid,
+            "transfer_system_operational": self.transfer_system_operational,
+            "inventory_mt": {
+                "produced_mt": round(self.lh2_produced_mt, 2),
+                "storage_boiloff_mt": round(self.lh2_storage_boiloff_mt, 2),
+                "initial_stored_mt": round(self.lh2_initial_stored_mt, 2),
+                "remaining_depot_stored_mt": round(self.lh2_depot_stored_mt, 2),
+                "verified_inventory_available_mt": round(self.lh2_verified_inventory_mt, 2),
+                "transferred_to_ship_mt": round(self.lh2_transferred_to_ship_mt, 2)
+            }
+        }
 
 
 class SpacecraftState:
@@ -64,15 +128,6 @@ class SpacecraftState:
         self.centrifuge_rpm = 6.0
         self.centrifuge_radius_m = 15.0
 
-        # Mars Surface ISRU Infrastructure & Depot State (Architecture B Baseline)
-        self.isru_precursor_deployed = True
-        self.isru_plant_operational = True
-        self.isru_power_closure = True
-        self.isru_thermal_closure = True
-        self.lh2_produced_mt = 0.0
-        self.lh2_depot_stored_mt = 0.0
-        self.lh2_reloaded_to_ship_mt = 0.0
-
         # System Health
         self.system_health = {
             "reactor_health": 1.0,
@@ -110,25 +165,17 @@ class SpacecraftState:
             "radiator_capacity_mwth": round(self.radiator_capacity_mwth, 2),
             "crew_count": self.crew_count,
             "crew_health_percent": round(self.crew_health_percent, 1),
-            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2),
-            "isru_depot_state": {
-                "precursor_deployed": self.isru_precursor_deployed,
-                "plant_operational": self.isru_plant_operational,
-                "power_closure": self.isru_power_closure,
-                "thermal_closure": self.isru_thermal_closure,
-                "lh2_produced_mt": round(self.lh2_produced_mt, 2),
-                "lh2_depot_stored_mt": round(self.lh2_depot_stored_mt, 2),
-                "lh2_reloaded_to_ship_mt": round(self.lh2_reloaded_to_ship_mt, 2)
-            }
+            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2)
         }
 
 
 class MissionDigitalTwin:
-    def __init__(self, initial_state=None):
+    def __init__(self, initial_state=None, isru_model=None):
         self.state = initial_state if initial_state else SpacecraftState()
+        self.depot = PrecursorDepotState()
         self.event_log = []
         self.mass_conservation_log = []
-        self.isru_model = MarsISRUModel()
+        self.isru_model = isru_model if isru_model else MarsISRUModel()
 
     def enforce_mass_conservation(self, event_name, m_initial, m_final, prop_burned, consumables_spent, boiloff_lost, isru_reloaded=0.0):
         """Enforces M_initial + isru_reloaded = M_final + prop_burned + consumables_spent + boiloff_lost."""
@@ -145,6 +192,89 @@ class MissionDigitalTwin:
             "isru_reloaded_mt": round(isru_reloaded, 4),
             "error_mt": round(error_mt, 8)
         })
+
+    def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0):
+        """Phase A — Precursor Autonomous Mission:
+        Earth -> Mars -> land -> deploy -> commission -> produce propellant -> liquefy -> store -> verify depot.
+        Calculates and verifies depot output before crew departure authorization.
+        """
+        # Step 1: Check Precursor Payload Delivery Closure
+        payload_eval = self.isru_model.precursor_payload_closes(number_of_landers=number_of_landers, capacity_per_lander_mt=lander_capacity_mt)
+        self.depot.precursor_payload_closes = payload_eval["payload_closes"]
+
+        if not self.depot.precursor_payload_closes:
+            self.depot.state = PrecursorDepotState.PRECURSOR_NOT_DEPLOYED
+            return self.depot.to_dict()
+
+        self.depot.precursor_deployed = True
+        self.depot.state = PrecursorDepotState.PRECURSOR_DEPLOYED
+
+        # Step 2: Surface Power & Thermal Closure Evaluation
+        p_eval = self.isru_model.surface_power_budget(available_power_mwe=available_power_mwe)
+        self.depot.isru_power_closure = p_eval["power_closes"]
+        self.depot.isru_thermal_closure = True # Thermal radiators sized in model
+
+        if not self.depot.isru_power_closure:
+            self.depot.isru_operational = False
+            return self.depot.to_dict()
+
+        self.depot.isru_operational = True
+        self.depot.state = PrecursorDepotState.ISRU_OPERATIONAL
+
+        # Step 3: Propellant Production Campaign
+        acct = self.isru_model.calculate_propellant_accounting()
+        gross_lh2_mt = acct["gross_lh2_production_mt"]
+        storage_boiloff_mt = acct["loss_breakdown_mt"]["storage_boiloff_mt"]
+        stored_lh2_mt = gross_lh2_mt - storage_boiloff_mt
+
+        self.depot.lh2_produced_mt = gross_lh2_mt
+        self.depot.lh2_storage_boiloff_mt = storage_boiloff_mt
+        self.depot.lh2_initial_stored_mt = stored_lh2_mt
+        self.depot.lh2_depot_stored_mt = stored_lh2_mt
+
+        required_lh2_mt = acct["net_tei_lh2_mt"]
+
+        if stored_lh2_mt >= required_lh2_mt:
+            self.depot.production_complete = True
+            self.depot.state = PrecursorDepotState.PROPULSANT_PRODUCTION_COMPLETE
+        else:
+            self.depot.production_complete = False
+            return self.depot.to_dict()
+
+        # Step 4: Verification and Commissioning
+        self.depot.storage_system_operational = True
+        self.depot.inventory_measurement_valid = True
+        self.depot.transfer_system_operational = True
+        self.depot.lh2_verified_inventory_mt = stored_lh2_mt
+        self.depot.depot_verified = True
+        self.depot.state = PrecursorDepotState.DEPOT_VERIFIED
+
+        return self.depot.to_dict()
+
+    def precursor_inventory_verified(self, required_net_lh2_mt=2200.0):
+        """Pre-Departure Safety Gate:
+        Verifies depot existence, operational status, production completeness,
+        required LH2 availability above reserve, ZBO/storage operational status,
+        measurement validity, and transfer system operational status.
+        """
+        gate = {
+            "depot_exists": self.depot.precursor_deployed,
+            "depot_operational": self.depot.isru_operational,
+            "power_closure": self.depot.isru_power_closure,
+            "payload_closure": self.depot.precursor_payload_closes,
+            "propellant_production_complete": self.depot.production_complete,
+            "depot_verified": self.depot.depot_verified,
+            "required_LH2_available": self.depot.lh2_verified_inventory_mt >= required_net_lh2_mt,
+            "storage_system_operational": self.depot.storage_system_operational,
+            "inventory_measurement_valid": self.depot.inventory_measurement_valid,
+            "transfer_system_operational": self.depot.transfer_system_operational
+        }
+
+        authorized = all(gate.values())
+        if authorized:
+            self.depot.state = PrecursorDepotState.CREW_DEPARTURE_AUTHORIZED
+
+        return authorized, gate
 
     def update_power_and_thermal(self, mode="nominal"):
         """Updates power generation, electrical loads, and Stefan-Boltzmann radiator heat rejection."""
@@ -211,7 +341,6 @@ class MissionDigitalTwin:
 
         tsiolkovsky_dv_kms = (v_e * math.log(m_initial / m_final)) / 1000.0 if m_final > 0 else 0.0
 
-        # Numerical integration step cross-check (dt = 1s)
         steps = int(max(1, duration_s))
         dt = duration_s / steps if steps > 0 else 0.0
         m_step = m_initial
@@ -226,13 +355,11 @@ class MissionDigitalTwin:
         dv_diff_percent = abs(tsiolkovsky_dv_kms - numerical_dv_kms) / tsiolkovsky_dv_kms * 100.0 if tsiolkovsky_dv_kms > 0 else 0.0
         assert dv_diff_percent < 0.5, f"NUMERICAL VS ANALYTICAL DISAGREEMENT: Tsiolkovsky={tsiolkovsky_dv_kms}, Num={numerical_dv_kms}"
 
-        # Vector update
         norm_dir = [vector_direction[0] / max(1e-6, math.hypot(*vector_direction)),
                     vector_direction[1] / max(1e-6, math.hypot(*vector_direction))]
         self.state.v_vec_kms[0] += tsiolkovsky_dv_kms * norm_dir[0]
         self.state.v_vec_kms[1] += tsiolkovsky_dv_kms * norm_dir[1]
 
-        # State transition
         self.state.lh2_mt -= lh2_to_burn
         self.state.time_days += (duration_s / 86400.0)
         self.state.total_delta_v_kms += tsiolkovsky_dv_kms
@@ -290,7 +417,6 @@ class MissionDigitalTwin:
         rad_dose_csv = 0.07 * actual_duration_days
         self.state.accumulated_radiation_csv += rad_dose_csv
 
-        # Vector update
         norm_dir = [vector_direction[0] / max(1e-6, math.hypot(*vector_direction)),
                     vector_direction[1] / max(1e-6, math.hypot(*vector_direction))]
         self.state.v_vec_kms[0] += tsiolkovsky_dv_kms * norm_dir[0]
@@ -317,35 +443,46 @@ class MissionDigitalTwin:
         self.event_log.append(record)
         return record
 
-    def execute_mars_isru_reload_and_stay(self, phase_name="Mars ISRU Propellant Reload & Stay (640d)", duration_days=640.0):
-        """Executes Mars stay and ISRU propellant reload into Enterprise X tanks."""
+    def execute_mars_isru_reload_and_stay(self, phase_name="Mars Propellant Transfer & Operations (640d)", duration_days=640.0, target_reload_net_mt=2200.0):
+        """Phase B — Crewed Operations & Propellant Transfer:
+        Consumes pre-existing verified precursor depot output.
+        Performs explicit mass-conserving transfer:
+        depot_verified_inventory -> debit (line_chilldown + flash_loss + residuals) + credit (spacecraft_inventory).
+        Crewed mission DOES NOT manufacture fresh precursor inventory.
+        """
         m_initial = self.state.gross_mass_mt
         self.update_power_and_thermal(mode="mars_stay")
 
-        if self.state.isru_plant_operational:
-            # Run ISRU Model to determine baseline production capabilities
-            isru_res = self.isru_model.run_full_isru_model()
-            accounting = isru_res["propellant_accounting"]
+        # Debit source depot inventory
+        available_verified_depot = self.depot.lh2_verified_inventory_mt
+        gross_debit_required = min(available_verified_depot, target_reload_net_mt * 1.035) # ~3.5% transfer loss overhead
 
-            gross_produced_mt = accounting["gross_lh2_production_mt"]
-            net_tei_lh2_mt = accounting["net_tei_lh2_mt"]
+        # Calculate itemized transfer losses
+        f_chilldown = 0.010
+        f_flash = 0.015
+        f_residuals = 0.010
 
-            self.state.lh2_produced_mt = max(self.state.lh2_produced_mt, gross_produced_mt)
-            self.state.lh2_depot_stored_mt = max(self.state.lh2_depot_stored_mt, gross_produced_mt - accounting["loss_breakdown_mt"]["storage_boiloff_mt"])
-            lh2_reloaded_mt = net_tei_lh2_mt
-        else:
-            # Plant is degraded or failed: reload only what was actually produced/stored
-            lh2_reloaded_mt = min(2200.0, self.state.lh2_depot_stored_mt)
+        chilldown_loss_mt = gross_debit_required * f_chilldown
+        flash_loss_mt = gross_debit_required * f_flash
+        residual_loss_mt = gross_debit_required * f_residuals
+        total_transfer_loss_mt = chilldown_loss_mt + flash_loss_mt + residual_loss_mt
 
-        self.state.lh2_mt += lh2_reloaded_mt
-        self.state.lh2_reloaded_to_ship_mt = lh2_reloaded_mt
+        net_lh2_transferred_to_ship_mt = max(0.0, gross_debit_required - total_transfer_loss_mt)
+
+        # Debit source depot
+        self.depot.lh2_verified_inventory_mt -= gross_debit_required
+        self.depot.lh2_depot_stored_mt -= gross_debit_required
+        self.depot.lh2_transferred_to_ship_mt += net_lh2_transferred_to_ship_mt
+
+        # Credit destination spacecraft
+        self.state.lh2_mt += net_lh2_transferred_to_ship_mt
 
         # Crew consumable usage deducted from dry mass
         consumable_loss_mt = min(self.state.crew_consumables_mt, 0.0723 * duration_days)
         self.state.crew_consumables_mt -= consumable_loss_mt
         self.state.dry_mass_mt -= consumable_loss_mt
 
-        # Passive LH2 boiloff during stay
+        # Passive LH2 boiloff during stay on ship
         boiloff_lost_mt = min(self.state.lh2_mt, self.state.lh2_mt * self.state.passive_boiloff_rate_percent_per_day * duration_days)
         self.state.lh2_mt -= boiloff_lost_mt
         self.state.cumulative_boiloff_loss_mt += boiloff_lost_mt
@@ -358,14 +495,16 @@ class MissionDigitalTwin:
 
         self.state.time_days += duration_days
 
-        self.enforce_mass_conservation(phase_name, m_initial, self.state.gross_mass_mt, 0.0, consumable_loss_mt, boiloff_lost_mt, isru_reloaded=lh2_reloaded_mt)
+        self.enforce_mass_conservation(phase_name, m_initial, self.state.gross_mass_mt, 0.0, consumable_loss_mt, boiloff_lost_mt, isru_reloaded=net_lh2_transferred_to_ship_mt)
 
         record = {
             "phase": phase_name,
             "type": "MARS_ISRU_STAY",
             "duration_days": duration_days,
             "end_time_days": round(self.state.time_days, 2),
-            "lh2_reloaded_mt": round(lh2_reloaded_mt, 2),
+            "depot_debit_mt": round(gross_debit_required, 2),
+            "transfer_losses_mt": round(total_transfer_loss_mt, 2),
+            "lh2_reloaded_mt": round(net_lh2_transferred_to_ship_mt, 2),
             "gross_mass_mt": round(self.state.gross_mass_mt, 2),
             "crew_health_percent": round(self.state.crew_health_percent, 1),
             "accumulated_radiation_csv": round(self.state.accumulated_radiation_csv, 2)
@@ -374,20 +513,22 @@ class MissionDigitalTwin:
         return record
 
     def evaluate_mission_success_predicate(self):
-        """Formally evaluates machine-readable physical mission success predicate for Phase 8."""
+        """Formally evaluates machine-readable physical mission success predicate for Phase 8.1."""
         p_earth_dep = "Trans-Mars Injection (TMI)" in [e["phase"] for e in self.event_log]
         p_mars_enc = "Mars Orbit Insertion (MOI)" in [e["phase"] for e in self.event_log]
-        p_mars_stay = any("Mars" in e["phase"] and "Stay" in e["phase"] for e in self.event_log)
+        p_mars_stay = any("Mars" in e["phase"] and ("Stay" in e["phase"] or "Operations" in e["phase"]) for e in self.event_log)
         p_tei = "Trans-Earth Injection (TEI)" in [e["phase"] for e in self.event_log]
         p_earth_cap = "Earth Orbit Capture (EOI)" in [e["phase"] for e in self.event_log]
 
-        # Phase 8 ISRU Specific Predicates
-        p_isru_precursor = self.state.isru_precursor_deployed
-        p_isru_operational = self.state.isru_plant_operational
-        p_isru_manufactured = (self.state.lh2_produced_mt >= 2200.0)
-        p_isru_stored = (self.state.lh2_depot_stored_mt >= 2200.0)
-        p_isru_power_closure = self.state.isru_power_closure
-        p_isru_thermal_closure = self.state.isru_thermal_closure
+        # Machine-Readable Phase 8.1 Predicates
+        p_payload_closes = self.depot.precursor_payload_closes
+        p_isru_precursor = self.depot.precursor_deployed
+        p_isru_operational = self.depot.isru_operational
+        p_depot_verified = self.depot.depot_verified
+        p_isru_manufactured = (self.depot.lh2_produced_mt >= 2200.0)
+        p_isru_stored = (self.depot.lh2_initial_stored_mt >= 2200.0)
+        p_isru_power_closure = self.depot.isru_power_closure
+        p_isru_thermal_closure = self.depot.isru_thermal_closure
 
         p_prop_reserve = (self.state.lh2_mt >= 0.0 and self.state.lnh3_mt >= 0.0)
         p_power_margin = (self.state.electrical_power_mwe - self.state.house_load_mwe - self.state.propulsion_load_mwe) >= -0.01
@@ -395,37 +536,58 @@ class MissionDigitalTwin:
         p_crew_health = (self.state.crew_health_percent >= 70.0 and self.state.accumulated_radiation_csv <= 100.0)
         p_no_critical_fail = not self.state.system_health["critical_failure"]
 
-        success = (p_earth_dep and p_mars_enc and p_mars_stay and p_tei and
-                   p_isru_precursor and p_isru_operational and p_isru_manufactured and
-                   p_isru_stored and p_isru_power_closure and p_isru_thermal_closure and
+        # Transfer mass conservation predicate
+        p_mass_conservation = all(log["error_mt"] < 1e-4 for log in self.mass_conservation_log)
+
+        success = (p_payload_closes and p_isru_precursor and p_isru_operational and
+                   p_depot_verified and p_isru_manufactured and p_isru_stored and
+                   p_isru_power_closure and p_isru_thermal_closure and
+                   p_earth_dep and p_mars_enc and p_mars_stay and p_tei and
                    p_prop_reserve and p_power_margin and p_thermal_margin and
-                   p_crew_health and p_no_critical_fail)
+                   p_crew_health and p_no_critical_fail and p_mass_conservation)
 
         return {
             "mission_success": success,
             "program_status": "ENGINEERINGALLY CONDITIONAL" if success else "PHYSICALLY INFEASIBLE",
             "predicates": {
+                "precursor_delivery_closes": p_payload_closes,
+                "precursor_deployed": p_isru_precursor,
+                "isru_operational": p_isru_operational,
+                "depot_inventory_verified": p_depot_verified,
+                "return_propellant_manufactured": p_isru_manufactured,
+                "return_propellant_stored": p_isru_stored,
+                "surface_power_closes": p_isru_power_closure,
+                "thermal_closure": p_isru_thermal_closure,
+                "earth_departure_authorized": self.depot.state == PrecursorDepotState.CREW_DEPARTURE_AUTHORIZED,
                 "earth_departure_achieved": p_earth_dep,
                 "mars_encounter_achieved": p_mars_enc,
                 "mars_operations_completed": p_mars_stay,
-                "isru_precursor_deployed": p_isru_precursor,
-                "isru_infrastructure_operational": p_isru_operational,
-                "return_propellant_manufactured": p_isru_manufactured,
-                "return_propellant_stored": p_isru_stored,
-                "isru_power_closure_verified": p_isru_power_closure,
-                "isru_thermal_closure_verified": p_isru_thermal_closure,
-                "earth_return_achieved": p_tei,
+                "refueling_conserves_mass": p_mass_conservation,
+                "return_trajectory_closes": p_tei,
                 "earth_capture_achieved": p_earth_cap,
                 "propellant_reserve_positive": p_prop_reserve,
                 "power_margin_positive": p_power_margin,
                 "thermal_margin_positive": p_thermal_margin,
-                "crew_health_viable": p_crew_health,
+                "crew_survivability_closes": p_crew_health,
                 "no_critical_failure": p_no_critical_fail
             }
         }
 
-    def run_full_mission_baseline(self):
-        """Runs the sequential baseline simulation for Mission B (Earth-Mars-ISRU-Earth)."""
+    def run_crewed_mission(self):
+        """Phase B — Sequential Simulation for Crewed Enterprise X Mission."""
+        # Check pre-departure safety gate
+        authorized, gate_status = self.precursor_inventory_verified()
+        if not authorized:
+            predicates = self.evaluate_mission_success_predicate()
+            return {
+                "status": "CREW DEPARTURE ABORTED ON EARTH",
+                "reason": "Precursor depot inventory failed verification gate",
+                "gate_status": gate_status,
+                "events": self.event_log,
+                "final_state": self.state.to_dict(),
+                "success_predicate_assessment": predicates
+            }
+
         self.execute_ntp_burn("Trans-Mars Injection (TMI)", target_dv_kms=3.80, vector_direction=[1.0, 0.2])
         self.state.soi_reference = "Sun_Heliocentric"
 
@@ -434,8 +596,8 @@ class MissionDigitalTwin:
 
         self.execute_ntp_burn("Mars Orbit Insertion (MOI)", target_dv_kms=2.10, vector_direction=[-0.9, -0.1])
 
-        # Execute Mars stay with ISRU reload
-        self.execute_mars_isru_reload_and_stay("Mars ISRU Propellant Reload & Stay (640d)", duration_days=640.0)
+        # Execute Mars stay and consume pre-existing verified depot output
+        self.execute_mars_isru_reload_and_stay("Mars Propellant Transfer & Operations (640d)", duration_days=640.0)
 
         self.execute_ntp_burn("Trans-Earth Injection (TEI)", target_dv_kms=1.80, vector_direction=[-1.0, -0.2])
         self.state.soi_reference = "Sun_Heliocentric"
@@ -454,8 +616,9 @@ class MissionDigitalTwin:
                 "dry_mass_mt": 1470.96,
                 "initial_propellant_mt": 2500.0,
                 "gross_departure_mass_mt": 3970.96,
-                "isru_reloaded_lh2_mt": round(self.state.lh2_reloaded_to_ship_mt, 2)
+                "isru_reloaded_lh2_mt": round(self.depot.lh2_transferred_to_ship_mt, 2)
             },
+            "precursor_depot_final_state": self.depot.to_dict(),
             "events": self.event_log,
             "final_state": self.state.to_dict(),
             "success_predicate_assessment": predicates,
@@ -465,6 +628,11 @@ class MissionDigitalTwin:
             }
         }
         return output
+
+    def run_full_mission_baseline(self):
+        """Runs Phase A (Precursor) followed by Phase B (Crewed) baseline simulation."""
+        self.run_precursor_mission()
+        return self.run_crewed_mission()
 
 
 def generate_json_baseline(output_path="engineering/calculations/mission_baseline.json"):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Monte Carlo Sensitivity Analysis for Project Occam-7 (USS Enterprise X)
-Updated for Program Phase 8 — Mars ISRU, Propellant Logistics & Mission Closure.
+Updated for Program Phase 8.1 — Codex Defect Remediation & Mission Integrity.
 
 Executes 10,000 simulated mission cases under Architecture B (Precursor Autonomous ISRU Depot).
 Evaluates statistical distributions for:
@@ -33,17 +33,17 @@ def run_monte_carlo_simulation(num_runs=10000):
         dry_mass = random.gauss(1470.96, 1470.96 * 0.05)       # ±5% std dev
         lh2_mass = random.gauss(2200.0, 2200.0 * 0.03)          # ±3% std dev
         lnh3_mass = random.gauss(300.0, 300.0 * 0.03)           # ±3% std dev
-        ntp_isp = random.gauss(900.0, 900.0 * 0.02)             # ±2% std dev
-        nep_power = random.gauss(15.0, 15.0 * 0.05)             # ±5% std dev
         nep_eff = random.uniform(0.58, 0.72)                   # 0.65 ±0.07
 
-        # Sample Mars Precursor ISRU Parameters (Architecture B: 750-day window before crew arrival)
+        # Sample Mars Precursor ISRU Parameters
         ice_conc = random.uniform(0.35, 0.65)                  # 35% to 65% ice in regolith
         soec_eff = random.uniform(0.60, 0.80)                  # 60% to 80% SOEC efficiency
         liq_eff = random.uniform(0.20, 0.30)                   # 20% to 30% Carnot liquefaction efficiency
-        isru_power_mwe = random.gauss(18.0, 1.2)               # 18.0 MWe precursor nuclear reactor (std dev 1.2 MW)
+        isru_power_mwe = random.gauss(25.0, 1.2)               # 25.0 MWe precursor nuclear reactor (std dev 1.2 MW)
         isru_avail = random.uniform(0.80, 1.00)                # 80% to 100% equipment availability
         downtime_days = random.uniform(0.0, 90.0)             # 0 to 90 days maintenance downtime
+        num_landers = 2                                        # Multi-lander precursor architecture
+        capacity_per_lander = random.gauss(150.0, 5.0)        # ±5t lander capacity variation
 
         # Instantiate custom state
         state = SpacecraftState(
@@ -56,30 +56,31 @@ def run_monte_carlo_simulation(num_runs=10000):
         # Evaluate Precursor ISRU capability (750-day window available before crew Earth departure)
         nominal_window_days = 750.0
         effective_days = (nominal_window_days - downtime_days) * isru_avail
-        isru_model = MarsISRUModel(target_lh2_net_mt=2200.0, production_days=effective_days, ice_concentration=ice_conc)
 
-        # Check if ISRU power & time close
-        p_req = isru_model.calculate_electrolysis_and_liquefaction_power(2760.8)["avg_continuous_power_mwe"]
-        isru_power_closed = (isru_power_mwe >= p_req)
-        isru_time_closed = (effective_days >= 400.0)
+        # Parameterize model with sampled efficiencies
+        isru_model = MarsISRUModel(
+            target_lh2_net_mt=2200.0,
+            production_days=effective_days,
+            ice_concentration=ice_conc,
+            soec_efficiency=soec_eff,
+            liquefaction_efficiency=liq_eff
+        )
 
-        state.isru_power_closure = isru_power_closed
-        state.isru_plant_operational = (isru_power_closed and isru_time_closed)
+        twin = MissionDigitalTwin(initial_state=state, isru_model=isru_model)
 
-        if not isru_power_closed or not isru_time_closed:
-            produced_factor = min(1.0, (isru_power_mwe / max(1.0, p_req)) * (effective_days / nominal_window_days))
-            state.lh2_produced_mt = 2200.0 * max(0.0, produced_factor)
-            state.lh2_depot_stored_mt = state.lh2_produced_mt * 0.985
-        else:
-            state.lh2_produced_mt = 2760.8
-            state.lh2_depot_stored_mt = 2719.3
+        # Run Phase A (Precursor)
+        precursor_res = twin.run_precursor_mission(
+            duration_days=effective_days,
+            available_power_mwe=isru_power_mwe,
+            number_of_landers=num_landers,
+            lander_capacity_mt=capacity_per_lander
+        )
 
-        twin = MissionDigitalTwin(initial_state=state)
-        twin.isru_model = isru_model
-        output = twin.run_full_mission_baseline()
+        # Run Phase B (Crewed Mission)
+        crewed_res = twin.run_crewed_mission()
 
-        success = output["success_predicate_assessment"]["mission_success"]
-        predicates = output["success_predicate_assessment"]["predicates"]
+        success = crewed_res["success_predicate_assessment"]["mission_success"]
+        predicates = crewed_res["success_predicate_assessment"]["predicates"]
 
         if success:
             success_count += 1
@@ -95,9 +96,11 @@ def run_monte_carlo_simulation(num_runs=10000):
             "lh2_mass_mt": round(lh2_mass, 2),
             "ice_concentration": round(ice_conc, 3),
             "soec_efficiency": round(soec_eff, 3),
+            "liquefaction_efficiency": round(liq_eff, 3),
             "isru_power_mwe": round(isru_power_mwe, 2),
             "isru_downtime_days": round(downtime_days, 1),
-            "lh2_produced_mt": round(state.lh2_produced_mt, 1)
+            "capacity_per_lander_mt": round(capacity_per_lander, 2),
+            "lh2_produced_mt": round(twin.depot.lh2_produced_mt, 1)
         }
         results.append(run_record)
         variable_history.append(run_record)
@@ -110,7 +113,7 @@ def run_monte_carlo_simulation(num_runs=10000):
 
     sensitivities = []
     if success_runs and fail_runs:
-        for param in ["isru_power_mwe", "isru_downtime_days", "ice_concentration", "soec_efficiency", "dry_mass_mt", "lh2_mass_mt"]:
+        for param in ["isru_power_mwe", "isru_downtime_days", "soec_efficiency", "liquefaction_efficiency", "ice_concentration", "dry_mass_mt", "lh2_mass_mt", "capacity_per_lander_mt"]:
             mean_succ = sum(r[param] for r in success_runs) / len(success_runs)
             mean_fail = sum(r[param] for r in fail_runs) / len(fail_runs)
             pct_delta = abs(mean_succ - mean_fail) / mean_succ * 100.0 if mean_succ > 0 else 0.0
