@@ -26,7 +26,7 @@
 | :--- | :---: | :---: | :--- | :--- |
 | **Requirements** | **3** | Class A | Mission B (1,000-day Earth-Mars-Earth fast transit) quantitatively defined. | Deep-space contingency mission abort rules |
 | **Mass Budget Closure** | **2** | Class B | Unmargined dry ($1,225.80\text{t}$) and $20\%$ growth reserve ($1,470.96\text{t}$) reconcile. | Subsystem mass growth during detailed CAD drafting |
-| **Propulsion Closure** | **2** | Class B | Dual-mode NTP ($4,000\text{kN}$) + NEP ($568.1\text{N}$, $9.75\text{MW}_{jet}$) integrated. | MPD thruster cathode erosion at $15\text{ MWe}$ over $15.5\text{ Ms}$ |
+| **Propulsion & Trajectory Closure** | **3** | Class B | Sequential digital twin state integration (`mission_digital_twin.py`) verifies $12.25\text{ km/s}$ actual vehicle capability. | In-space $\text{LH}_2$ zero-boiloff cryocooling over 1,000 days |
 | **Power Budget Closure** | **2** | Class B | $100\text{ MW}_{th}$ Fast Reactor / $20\text{ MWe}$ Brayton loop closed ($+4.55\text{MWe}$ reserve). | Supercritical $\text{CO}_2$ turbine bearing seal degradation |
 | **Thermal Closure** | **2** | Class B | $83.45\text{ MW}_{th}$ waste heat rejected via $2,502.8\text{ m}^2$ panel footprint ($6.75\text{t}$). | Micrometeoroid perforation of NaK heat pipes |
 | **Radiation Protection** | **2** | Class B | Multi-layer storm shelter ($52.25\text{ g/cm}^2$, $73.1\text{t}$) closes SPE shelter. | GCR secondary neutron generation in heavy shielding |

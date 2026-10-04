@@ -3,7 +3,7 @@
 **Document ID:** `25-mission-performance-v1.md`
 **Baseline Mission:** Earth-Mars-Earth Fast Transit (1,000 Days)
 **Primary Propulsion Baseline:** Hybrid NTP (High-Thrust Impulse) + NEP MPD (Continuous High-Efficiency Cruise)
-**Reconciled Departure Mass ($M_{dep}$):** $3,995.96\text{ MT}$
+**Reconciled Departure Mass ($M_{dep}$):** $3,970.96\text{ MT}$
 **Reconciled Dry Mass ($M_{dry}$):** $1,470.96\text{ MT}$
 
 ---
