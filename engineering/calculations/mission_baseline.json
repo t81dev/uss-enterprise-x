@@ -9,79 +9,69 @@
     {
       "phase": "Trans-Mars Injection (TMI)",
       "type": "NTP_BURN",
-      "start_time_days": 0.0,
       "duration_s": 3065.3,
       "start_mass_mt": 3970.96,
       "lh2_burned_mt": 1389.23,
       "end_mass_mt": 2581.73,
       "thrust_kn": 4000.0,
-      "isp_s": 900.0,
       "actual_dv_kms": 3.8,
-      "target_dv_kms": 3.8,
+      "numerical_dv_kms": 3.8,
       "lh2_remaining_mt": 810.77
     },
     {
       "phase": "Outbound Cruise NEP (180d)",
       "type": "NEP_BURN",
-      "start_time_days": 0.04,
       "duration_days": 180.0,
       "start_mass_mt": 2581.73,
       "lnh3_burned_mt": 257.42,
-      "end_mass_mt": 2324.31,
+      "boiloff_lost_mt": 14.5939,
+      "end_mass_mt": 2309.72,
       "thrust_n": 568.13,
-      "p_jet_mw": 9.75,
-      "isp_s": 3500.0,
       "actual_dv_kms": 3.605,
       "lnh3_remaining_mt": 42.58
     },
     {
       "phase": "Mars Orbit Insertion (MOI)",
       "type": "NTP_BURN",
-      "start_time_days": 180.04,
-      "duration_s": 1086.0,
-      "start_mass_mt": 2324.31,
-      "lh2_burned_mt": 492.16,
-      "end_mass_mt": 1832.15,
+      "duration_s": 1079.1,
+      "start_mass_mt": 2309.72,
+      "lh2_burned_mt": 489.07,
+      "end_mass_mt": 1820.65,
       "thrust_kn": 4000.0,
-      "isp_s": 900.0,
       "actual_dv_kms": 2.1,
-      "target_dv_kms": 2.1,
-      "lh2_remaining_mt": 318.61
+      "numerical_dv_kms": 2.1,
+      "lh2_remaining_mt": 307.11
     },
     {
       "phase": "Mars Orbit Stay (640d)",
       "type": "COAST_STAY",
       "duration_days": 640.0,
       "end_time_days": 820.05,
-      "gross_mass_mt": 1785.88,
-      "crew_count": 24,
-      "crew_health_percent": 100.0
+      "gross_mass_mt": 1754.72,
+      "crew_health_percent": 100.0,
+      "accumulated_radiation_csv": 31.8
     },
     {
       "phase": "Trans-Earth Injection (TEI)",
       "type": "NTP_BURN",
-      "start_time_days": 820.05,
-      "duration_s": 703.0,
-      "start_mass_mt": 1785.88,
-      "lh2_burned_mt": 318.61,
+      "duration_s": 634.3,
+      "start_mass_mt": 1754.72,
+      "lh2_burned_mt": 287.45,
       "end_mass_mt": 1467.27,
       "thrust_kn": 4000.0,
-      "isp_s": 900.0,
-      "actual_dv_kms": 1.734,
-      "target_dv_kms": 1.8,
+      "actual_dv_kms": 1.579,
+      "numerical_dv_kms": 1.579,
       "lh2_remaining_mt": 0.0
     },
     {
       "phase": "Inbound Cruise NEP (180d)",
       "type": "NEP_BURN",
-      "start_time_days": 820.06,
       "duration_days": 29.77,
       "start_mass_mt": 1467.27,
       "lnh3_burned_mt": 42.58,
+      "boiloff_lost_mt": 0.0,
       "end_mass_mt": 1424.69,
       "thrust_n": 568.13,
-      "p_jet_mw": 9.75,
-      "isp_s": 3500.0,
       "actual_dv_kms": 1.011,
       "lnh3_remaining_mt": 0.0
     }
@@ -92,54 +82,43 @@
     "dry_mass_mt": 1424.69,
     "lh2_mt": 0.0,
     "lnh3_mt": 0.0,
-    "rcs_mt": 25.0,
-    "position": "Earth_Orbit",
-    "total_delta_v_kms": 12.25,
+    "rcs_mt": 0.0,
+    "crew_consumables_mt": 26.03,
+    "soi_reference": "Earth_SOI",
+    "r_vec_au": [
+      1.0,
+      0.0
+    ],
+    "v_vec_kms": [
+      2.166,
+      31.54
+    ],
+    "total_delta_v_kms": 12.095,
     "reactor_power_mwth": 100.0,
     "electrical_power_mwe": 20.0,
     "thermal_load_mwth": 85.25,
     "radiator_capacity_mwth": 133.35,
     "crew_count": 24,
-    "crew_health_percent": 100.0
+    "crew_health_percent": 100.0,
+    "accumulated_radiation_csv": 33.88
   },
-  "closure_summary": {
-    "status": "CLOSED",
-    "total_vehicle_dv_kms": 12.25,
-    "lh2_remaining_mt": 0.0,
-    "lnh3_remaining_mt": 0.0,
-    "final_gross_mass_mt": 1424.69,
-    "mission_duration_days": 849.8
-  },
-  "failure_cases": {
-    "radiator_loss_25": {
-      "total_dv_kms": 12.25,
-      "lh2_remaining_mt": 0.0,
-      "lnh3_remaining_mt": 0.0,
-      "final_mass_mt": 1424.69
-    },
-    "ntp_engine_loss_1": {
-      "total_dv_kms": 12.25,
-      "lh2_remaining_mt": 0.0,
-      "lnh3_remaining_mt": 0.0,
-      "final_mass_mt": 1424.69
-    },
-    "propellant_loss_30": {
-      "total_dv_kms": 9.615,
-      "lh2_remaining_mt": 0.0,
-      "lnh3_remaining_mt": 0.0,
-      "final_mass_mt": 1424.69
-    },
-    "reactor_degraded_50": {
-      "total_dv_kms": 12.021,
-      "lh2_remaining_mt": 0.0,
-      "lnh3_remaining_mt": 42.58,
-      "final_mass_mt": 1467.27
-    },
-    "gravity_loss": {
-      "total_dv_kms": 12.25,
-      "lh2_remaining_mt": 0.0,
-      "lnh3_remaining_mt": 0.0,
-      "final_mass_mt": 1424.69
+  "success_predicate_assessment": {
+    "mission_success": true,
+    "predicates": {
+      "earth_departure_achieved": true,
+      "mars_encounter_achieved": true,
+      "mars_operations_completed": true,
+      "earth_return_achieved": true,
+      "earth_capture_achieved": false,
+      "propellant_reserve_positive": true,
+      "power_margin_positive": true,
+      "thermal_margin_positive": true,
+      "crew_health_viable": true,
+      "no_critical_failure": true
     }
+  },
+  "mass_conservation_summary": {
+    "total_events_checked": 6,
+    "max_conservation_error_mt": 0.0
   }
 }
