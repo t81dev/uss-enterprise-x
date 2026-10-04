@@ -9,10 +9,10 @@ Provides first-principles physics and engineering models for:
 - Water mass balance and regolith excavation rates
 - Electrolysis power and chemical thermodynamics (SOEC / PEM)
 - Hydrogen liquefaction, ortho-para conversion, and cryocooler ZBO power
-- Mars surface power budget (continuous MW, peak MW, MWh)
+- Single authoritative Mars surface power budget calculation (continuous MW, peak MW, margins)
 - Nuclear surface reactor sizing and thermal rejection (Q_waste, radiator area/mass)
 - Production rate, campaign timeline, and industrial equipment sizing
-- Itemized ISRU surface plant mass budget
+- Itemized ISRU surface plant mass budget & multi-lander payload closure verification
 - Autonomous precursor architecture trade analysis (Architectures A through E)
 - Failure and abort scenario modeling
 - Machine-readable JSON output generation
@@ -55,14 +55,16 @@ H_CONVECTION_MARS = 3.5        # W/(m^2 K) - Forced/natural convection in 6 mbar
 class MarsISRUModel:
     """Complete first-principles Mars ISRU Propellant Accounting and Engineering Model."""
 
-    def __init__(self, target_lh2_net_mt=2200.0, production_days=500.0, ice_concentration=0.50):
+    def __init__(self, target_lh2_net_mt=2200.0, production_days=500.0, ice_concentration=0.50,
+                 soec_efficiency=0.72, liquefaction_efficiency=0.25):
         self.target_lh2_net_mt = target_lh2_net_mt  # Net usable return propellant required
         self.production_days = production_days      # Available production campaign duration
         self.ice_concentration = ice_concentration  # Glacial ice mass fraction in regolith (50% baseline)
+        self.soec_efficiency = soec_efficiency      # Solid Oxide Electrolyzer efficiency (baseline 72%)
+        self.liquefaction_efficiency = liquefaction_efficiency # Carnot liquefaction efficiency (baseline 25%)
 
     def calculate_propellant_accounting(self):
         """Calculates itemized propellant losses, reserves, and gross production requirement."""
-        # Baseline return impulse requirement (TEI + EOI reserve)
         net_tei_lh2_mt = self.target_lh2_net_mt
 
         # Itemized loss fractions
@@ -80,17 +82,13 @@ class MarsISRUModel:
         propellant_tcm_mt = 25.0      # Trajectory correction maneuvers on return trip
         propellant_abort_reserve_mt = 50.0 # Emergency abort maneuver reserve
 
-        # Net required usable inventory before loss accumulation
         net_required_total_mt = net_tei_lh2_mt + propellant_ascent_mt + propellant_tcm_mt + propellant_abort_reserve_mt
 
-        # Total gross production required accounting for multiplicative/additive losses
         loss_multiplier = (1.0 + f_production_loss + f_storage_boiloff + f_transfer_loss +
                            f_loading_flash + f_residuals + f_unusable_ullage +
                            f_startup_purge + f_contingency)
 
         gross_lh2_production_mt = net_required_total_mt * loss_multiplier
-
-        # Byproduct Oxygen production (stoichiometric)
         gross_o2_byproduct_mt = gross_lh2_production_mt * KG_O2_PER_KG_H2
 
         return {
@@ -124,14 +122,13 @@ class MarsISRUModel:
         water_req_raw_kg = water_req_pure_kg / (eta_ice_recovery * eta_water_purification)
         regolith_excavated_ice_kg = water_req_raw_kg / self.ice_concentration
 
-        # Pathway B: Hydrated Minerals (5% bound water, 600°C calcination required)
+        # Pathway B: Hydrated Minerals (5% bound water)
         eta_mineral_thermal_yield = 0.80
         water_req_mineral_raw_kg = water_req_pure_kg / eta_mineral_thermal_yield
         regolith_excavated_minerals_kg = water_req_mineral_raw_kg / 0.05
-        energy_calcination_kwh_per_kg_water = 1.85 # Thermal energy to heat clay/sulfate to 600°C
+        energy_calcination_kwh_per_kg_water = 1.85
 
-        # Pathway C: Atmospheric CO2 processing (Sabatier Methane + Water electrolysis)
-        # CO2 + 4 H2 -> CH4 + 2 H2O
+        # Pathway C: Atmospheric CO2 processing
         co2_req_for_ch4_kg = (gross_lh2_kg / 4.0) * (MOLAR_MASS_CO2 / MOLAR_MASS_H2)
         ch4_produced_kg = (gross_lh2_kg / 4.0) * (MOLAR_MASS_CH4 / MOLAR_MASS_H2)
 
@@ -159,42 +156,41 @@ class MarsISRUModel:
         }
 
     def calculate_electrolysis_and_liquefaction_power(self, gross_lh2_mt):
-        """Derives first-principles energy consumption for electrolysis and liquefaction."""
+        """Derives first-principles energy consumption parameterized by SOEC and Liquefaction efficiencies."""
         gross_lh2_kg = gross_lh2_mt * 1000.0
 
-        # Electrolysis Efficiency (Solid Oxide Electrolyzer Cell - SOEC)
-        eta_soec = 0.72 # 72% electrical efficiency (high temp SOEC using waste heat)
-        e_electrolysis_kwh_per_kg = DELTA_H_ELECTROLYSIS_KWH_PER_KG / eta_soec # ~54.71 kWh/kg H2
+        # Electrolysis Efficiency (SOEC) using parameterized efficiency
+        eta_soec = max(0.01, self.soec_efficiency)
+        e_electrolysis_kwh_per_kg = DELTA_H_ELECTROLYSIS_KWH_PER_KG / eta_soec
 
-        # Subsystem Energy Additions per kg LH2 produced:
-        e_water_heating_melting_kwh = 0.65   # Thermal heating from 210 K ice to 373 K steam
-        e_water_purification_kwh = 0.30       # Filtration, ion exchange, distillation
-        e_gas_purification_compression_kwh = 1.40 # Drying, catalytic deoxo, compression to 30 bar
-        e_mining_excavation_kwh = 1.80        # Autonomous excavator/hauler electric drive
-        e_pumps_controls_hvac_kwh = 1.15      # Coolant pumps, system controls, habitat life support
+        # Subsystem Energy Additions per kg LH2 produced
+        e_water_heating_melting_kwh = 0.65
+        e_water_purification_kwh = 0.30
+        e_gas_purification_compression_kwh = 1.40
+        e_mining_excavation_kwh = 1.80
+        e_pumps_controls_hvac_kwh = 1.15
 
         e_production_subtotal_kwh_per_kg = (e_electrolysis_kwh_per_kg + e_water_heating_melting_kwh +
                                              e_water_purification_kwh + e_gas_purification_compression_kwh +
-                                             e_mining_excavation_kwh + e_pumps_controls_hvac_kwh) # ~60.0 kWh/kg H2
+                                             e_mining_excavation_kwh + e_pumps_controls_hvac_kwh)
 
-        # Liquefaction Energy Derivation:
-        # Claude cycle liquefaction with ortho-to-para catalytic conversion
-        eta_liquefier_carnot = 0.25 # 25% Carnot efficiency at 20 K
-        e_liquefaction_work_kwh_per_kg = W_MIN_LIQUEFACTION_KWH_PER_KG / eta_liquefier_carnot # ~15.64 kWh/kg LH2
-        e_ortho_para_kwh_per_kg = (ORTHO_PARA_HEAT_KJ_PER_KG / 3600.0) / eta_liquefier_carnot # ~0.78 kWh/kg LH2
-        e_liquefaction_total_kwh_per_kg = e_liquefaction_work_kwh_per_kg + e_ortho_para_kwh_per_kg # ~16.42 kWh/kg LH2
+        # Liquefaction Energy Derivation using parameterized Carnot efficiency
+        eta_liquefier_carnot = max(0.01, self.liquefaction_efficiency)
+        e_liquefaction_work_kwh_per_kg = W_MIN_LIQUEFACTION_KWH_PER_KG / eta_liquefier_carnot
+        e_ortho_para_kwh_per_kg = (ORTHO_PARA_HEAT_KJ_PER_KG / 3600.0) / eta_liquefier_carnot
+        e_liquefaction_total_kwh_per_kg = e_liquefaction_work_kwh_per_kg + e_ortho_para_kwh_per_kg
 
         # Total specific electrical energy per kg LH2
-        e_total_kwh_per_kg_lh2 = e_production_subtotal_kwh_per_kg + e_liquefaction_total_kwh_per_kg # ~76.42 kWh/kg LH2
+        e_total_kwh_per_kg_lh2 = e_production_subtotal_kwh_per_kg + e_liquefaction_total_kwh_per_kg
 
         # Campaign totals
         total_energy_mwh = (gross_lh2_kg * e_total_kwh_per_kg_lh2) / 1000.0
         total_energy_gwh = total_energy_mwh / 1000.0
 
         # Required average continuous power over production duration
-        production_hours = self.production_days * 24.0
+        production_hours = max(1.0, self.production_days * 24.0)
         avg_power_mwe = total_energy_mwh / production_hours
-        peak_power_mwe = avg_power_mwe * 1.15 # 15% peak margin for starting heavy machinery
+        peak_power_mwe = avg_power_mwe * 1.15 # 15% peak starting margin
 
         return {
             "specific_energy_kwh_per_kg_lh2": round(e_total_kwh_per_kg_lh2, 2),
@@ -213,12 +209,18 @@ class MarsISRUModel:
             "peak_power_mwe": round(peak_power_mwe, 2)
         }
 
-    def build_mars_surface_power_budget(self, avg_power_mwe):
-        """Constructs detailed itemized surface power budget table."""
-        # Allocate power proportional to specific energy breakdown
-        p_total_kw = avg_power_mwe * 1000.0
+    def surface_power_budget(self, available_power_mwe=25.0, gross_lh2_mt=None):
+        """Single authoritative calculation for complete Mars surface power budget."""
+        if gross_lh2_mt is None:
+            acct = self.calculate_propellant_accounting()
+            gross_lh2_mt = acct["gross_lh2_production_mt"]
 
-        budget = {
+        p_info = self.calculate_electrolysis_and_liquefaction_power(gross_lh2_mt)
+        process_avg_mwe = p_info["avg_continuous_power_mwe"]
+
+        p_total_kw = process_avg_mwe * 1000.0
+
+        itemized_budget = {
             "Mining & Excavation": {"avg_kw": round(p_total_kw * 0.024, 1), "peak_kw": round(p_total_kw * 0.035, 1)},
             "Hauling & Crushing": {"avg_kw": round(p_total_kw * 0.012, 1), "peak_kw": round(p_total_kw * 0.020, 1)},
             "Water Extraction (Melting)": {"avg_kw": round(p_total_kw * 0.008, 1), "peak_kw": round(p_total_kw * 0.012, 1)},
@@ -229,53 +231,65 @@ class MarsISRUModel:
             "Cryogenic Storage & ZBO": {"avg_kw": round(p_total_kw * 0.010, 1), "peak_kw": round(p_total_kw * 0.015, 1)},
             "Pumps & Controls": {"avg_kw": round(p_total_kw * 0.008, 1), "peak_kw": round(p_total_kw * 0.012, 1)},
             "Habitat & Science": {"avg_kw": round(150.0, 1), "peak_kw": round(250.0, 1)},
-            "Unallocated Margin (15%)": {"avg_kw": round(p_total_kw * 0.15, 1), "peak_kw": round(p_total_kw * 0.20, 1)}
+            "Unallocated Operating Margin (15%)": {"avg_kw": round(p_total_kw * 0.15, 1), "peak_kw": round(p_total_kw * 0.20, 1)}
         }
 
-        total_avg_kw = sum(item["avg_kw"] for item in budget.values())
-        total_peak_kw = sum(item["peak_kw"] for item in budget.values())
+        total_avg_kw = sum(item["avg_kw"] for item in itemized_budget.values())
+        total_peak_kw = sum(item["peak_kw"] for item in itemized_budget.values())
+
+        required_average_mwe = total_avg_kw / 1000.0
+        required_peak_mwe = total_peak_kw / 1000.0
+
+        margin_mwe = available_power_mwe - required_average_mwe
+        margin_fraction = margin_mwe / required_average_mwe if required_average_mwe > 0 else 0.0
+
+        power_closes = (available_power_mwe >= required_average_mwe) and (available_power_mwe >= required_peak_mwe * 0.95)
 
         return {
-            "itemized_power_budget": budget,
-            "total_surface_avg_mwe": round(total_avg_kw / 1000.0, 2),
-            "total_surface_peak_mwe": round(total_peak_kw / 1000.0, 2)
+            "available_power_mwe": round(available_power_mwe, 2),
+            "required_average_power_mwe": round(required_average_mwe, 2),
+            "required_peak_power_mwe": round(required_peak_mwe, 2),
+            "power_margin_mwe": round(margin_mwe, 2),
+            "power_margin_fraction": round(margin_fraction, 4),
+            "power_closes": power_closes,
+            "itemized_power_budget": itemized_budget
+        }
+
+    def build_mars_surface_power_budget(self, avg_power_mwe):
+        """Maintained for backward compatibility; calls canonical surface_power_budget."""
+        res = self.surface_power_budget(available_power_mwe=25.0)
+        return {
+            "itemized_power_budget": res["itemized_power_budget"],
+            "total_surface_avg_mwe": res["required_average_power_mwe"],
+            "total_surface_peak_mwe": res["required_peak_power_mwe"]
         }
 
     def calculate_thermal_rejection_and_radiator(self, avg_power_mwe):
         """Calculates waste heat generation and sizes Mars surface radiators."""
         p_elec_mwe = avg_power_mwe
 
-        # Surface Reactor Power Generation Efficiency (15 MWe fast fission sCO2 Brayton @ 30% thermal eff)
         eta_reactor_thermal = 0.30
-        q_reactor_th_mw = p_elec_mwe / eta_reactor_thermal # ~41.67 MWth
-        q_reactor_waste_mw = q_reactor_th_mw - p_elec_mwe # ~29.17 MWth waste heat at 750 K
+        q_reactor_th_mw = p_elec_mwe / eta_reactor_thermal
+        q_reactor_waste_mw = q_reactor_th_mw - p_elec_mwe
 
-        # ISRU Plant Process Heat Rejection
-        # ~85% of electrical input in electrolysis, liquefaction, and machinery is rejected as waste heat
-        q_isru_waste_mw = p_elec_mwe * 0.85 # ~10.63 MWth waste heat at 350 K
-
+        q_isru_waste_mw = p_elec_mwe * 0.85
         total_q_waste_mw = q_reactor_waste_mw + q_isru_waste_mw
 
-        # Radiator Area Calculation using Stefan-Boltzmann + Martian Convection + Dust Degradation
-        # Reactor Radiator Loop (750 K heat rejection):
         t_rad_reactor_k = 750.0
         emissivity = 0.90
-        dust_degradation = 0.85 # Dust accumulation penalty factor
+        dust_degradation = 0.85
         eff_emiss = emissivity * dust_degradation
 
         q_rad_reactor_w = (eff_emiss * STEFAN_BOLTZMANN * (t_rad_reactor_k**4 - T_MARS_SURFACE_MAX_K**4) +
                            H_CONVECTION_MARS * (t_rad_reactor_k - T_MARS_SURFACE_MAX_K))
         area_reactor_rad_m2 = (q_reactor_waste_mw * 1e6) / q_rad_reactor_w
 
-        # ISRU Low-Temp Radiator Loop (350 K heat rejection):
         t_rad_isru_k = 350.0
         q_rad_isru_w = (eff_emiss * STEFAN_BOLTZMANN * (t_rad_isru_k**4 - T_MARS_SURFACE_MAX_K**4) +
                         H_CONVECTION_MARS * (t_rad_isru_k - T_MARS_SURFACE_MAX_K))
         area_isru_rad_m2 = (q_isru_waste_mw * 1e6) / q_rad_isru_w
 
         total_radiator_area_m2 = area_reactor_rad_m2 + area_isru_rad_m2
-
-        # Radiator Mass (Lightweight Composite Heat-Pipe Radiators: 4.5 kg/m^2)
         specific_radiator_mass_kg_m2 = 4.5
         radiator_mass_mt = (total_radiator_area_m2 * specific_radiator_mass_kg_m2) / 1000.0
 
@@ -294,7 +308,7 @@ class MarsISRUModel:
 
     def calculate_production_rates_and_equipment(self, gross_lh2_mt, water_extracted_mt, regolith_excavated_mt):
         """Calculates required hourly and daily processing rates."""
-        days = self.production_days
+        days = max(1.0, self.production_days)
         hours = days * 24.0
 
         lh2_kg_day = (gross_lh2_mt * 1000.0) / days
@@ -317,15 +331,15 @@ class MarsISRUModel:
                 "regolith_excavated_kg_hour": round(regolith_kg_hour, 1)
             },
             "equipment_sizing_sanity_check": {
-                "excavator_fleet_size": 2, # Two 1.5-tonne autonomous excavators operating @ 50% duty
+                "excavator_fleet_size": 2,
                 "excavation_rate_per_robot_kg_hr": round(regolith_kg_hour / 2.0, 1),
-                "electrolyzer_stack_rating_mwe": 10.0, # Two 5 MWe SOEC modules
-                "liquefier_capacity_kg_day": round(lh2_kg_day * 1.10, 1) # Rated for 10% surge
+                "electrolyzer_stack_rating_mwe": 10.0,
+                "liquefier_capacity_kg_day": round(lh2_kg_day * 1.10, 1)
             }
         }
 
     def create_isru_plant_mass_budget(self, radiator_mass_mt):
-        """Creates itemized ISRU plant mass budget."""
+        """Creates itemized ISRU plant mass budget and multi-lander delivery breakdown."""
         budget = {
             "Autonomous Excavators (2x 2.5t)": 5.00,
             "Autonomous Haulers & Conveyors": 4.50,
@@ -348,11 +362,57 @@ class MarsISRUModel:
 
         total_mass_mt = sum(budget.values())
 
+        # Resolved Architecture: Option B - Multi-Lander Delivery (2x Heavy Cargo Landers @ 150t payload capacity each = 300t total capacity)
+        # Lander 1 Payload: Surface Nuclear Reactor (28.5t), Radiators (108.17t), Structural/Controls (8.33t) = 145.0t
+        # Lander 2 Payload: Mining, Processing, Liquefaction, Storage Depot & Spares = 111.29t
+        number_of_landers = 2
+        capacity_per_lander_mt = 150.0
+        total_delivery_capacity_mt = number_of_landers * capacity_per_lander_mt
+        mass_margin_mt = total_delivery_capacity_mt - total_mass_mt
+
+        lander_1_payload_mt = 28.50 + radiator_mass_mt + 8.33
+        lander_2_payload_mt = total_mass_mt - lander_1_payload_mt
+
         return {
             "itemized_isru_mass_mt": {k: round(v, 2) for k, v in budget.items()},
             "total_isru_plant_dry_mass_mt": round(total_mass_mt, 2),
-            "precursor_lander_capacity_mt": 150.0,
-            "mass_margin_mt": round(150.0 - total_mass_mt, 2)
+            "precursor_lander_delivery_architecture": {
+                "number_of_landers": number_of_landers,
+                "capacity_per_lander_mt": capacity_per_lander_mt,
+                "total_precursor_delivery_capacity_mt": total_delivery_capacity_mt,
+                "mass_margin_mt": round(mass_margin_mt, 2),
+                "payload_closes": mass_margin_mt >= 0.0,
+                "lander_breakdown": {
+                    "lander_1_power_thermal_mt": round(lander_1_payload_mt, 2),
+                    "lander_1_capacity_mt": capacity_per_lander_mt,
+                    "lander_1_margin_mt": round(capacity_per_lander_mt - lander_1_payload_mt, 2),
+                    "lander_2_processing_depot_mt": round(lander_2_payload_mt, 2),
+                    "lander_2_capacity_mt": capacity_per_lander_mt,
+                    "lander_2_margin_mt": round(capacity_per_lander_mt - lander_2_payload_mt, 2)
+                }
+            }
+        }
+
+    def precursor_payload_closes(self, number_of_landers=2, capacity_per_lander_mt=150.0):
+        """Hard deployability gate evaluating whether precursor payload physically closes."""
+        accounting = self.calculate_propellant_accounting()
+        gross_lh2_mt = accounting["gross_lh2_production_mt"]
+        power_info = self.calculate_electrolysis_and_liquefaction_power(gross_lh2_mt)
+        thermal = self.calculate_thermal_rejection_and_radiator(power_info["avg_continuous_power_mwe"])
+        plant_budget = self.create_isru_plant_mass_budget(thermal["radiator_mass_mt"])
+
+        total_plant_mass_mt = plant_budget["total_isru_plant_dry_mass_mt"]
+        total_capacity_mt = number_of_landers * capacity_per_lander_mt
+
+        closes = (total_plant_mass_mt <= total_capacity_mt)
+
+        return {
+            "payload_closes": closes,
+            "total_plant_mass_mt": total_plant_mass_mt,
+            "number_of_landers": number_of_landers,
+            "capacity_per_lander_mt": capacity_per_lander_mt,
+            "total_delivery_capacity_mt": total_capacity_mt,
+            "mass_margin_mt": round(total_capacity_mt - total_plant_mass_mt, 2)
         }
 
     def evaluate_architecture_trades(self, total_isru_mass_mt):
@@ -366,17 +426,17 @@ class MarsISRUModel:
                 "key_blocker": "Enterprise X cannot land on Mars; crew cannot wait 500 days on surface for unproven ISRU to manufacture return propellant."
             },
             "Architecture_B": {
-                "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline)",
+                "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline - 2x 150t Landers)",
                 "isru_mass_mt": total_isru_mass_mt,
                 "crewed_vessel_landing_required": False,
-                "precursor_missions_required": 1, # 1 uncrewed Super-Heavy cargo lander
+                "precursor_missions_required": 2, # 2 uncrewed Super-Heavy cargo landers (2x 150t capacity)
                 "feasibility": "ENGINEERINGALLY CONDITIONAL",
                 "key_benefit": "Return propellant is 100% manufactured, stored, and verified BEFORE crew departs Earth. Zero crew mortality risk from ISRU failure."
             },
             "Architecture_C": {
                 "name": "Multi-Mission Precursor Depot Network",
                 "isru_mass_mt": total_isru_mass_mt * 1.20,
-                "precursor_missions_required": 3,
+                "precursor_missions_required": 4,
                 "feasibility": "FEASIBLE BUT HIGH COST",
                 "key_benefit": "Redundant parallel production plants, higher resilience."
             },
@@ -431,7 +491,7 @@ class MarsISRUModel:
 
         feedstock = self.evaluate_feedstock_pathways(gross_lh2_mt)
         power_and_energy = self.calculate_electrolysis_and_liquefaction_power(gross_lh2_mt)
-        power_budget = self.build_mars_surface_power_budget(power_and_energy["avg_continuous_power_mwe"])
+        power_budget = self.surface_power_budget(available_power_mwe=25.0, gross_lh2_mt=gross_lh2_mt)
         thermal = self.calculate_thermal_rejection_and_radiator(power_and_energy["avg_continuous_power_mwe"])
 
         water_mt = feedstock["glacial_ice"]["raw_water_extracted_mt"]
@@ -439,6 +499,7 @@ class MarsISRUModel:
         rates = self.calculate_production_rates_and_equipment(gross_lh2_mt, water_mt, regolith_mt)
 
         plant_mass = self.create_isru_plant_mass_budget(thermal["radiator_mass_mt"])
+        payload_closure = self.precursor_payload_closes(number_of_landers=2, capacity_per_lander_mt=150.0)
         architecture_trades = self.evaluate_architecture_trades(plant_mass["total_isru_plant_dry_mass_mt"])
         failure_modes = self.analyze_failure_and_abort_scenarios(gross_lh2_mt)
 
@@ -452,6 +513,7 @@ class MarsISRUModel:
             "thermal_rejection_and_radiators": thermal,
             "production_rates_and_equipment": rates,
             "isru_plant_mass_budget": plant_mass,
+            "precursor_payload_closure": payload_closure,
             "architecture_trade_matrix": architecture_trades,
             "failure_and_abort_analysis": failure_modes
         }

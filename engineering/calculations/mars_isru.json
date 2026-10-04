@@ -59,6 +59,12 @@
     "peak_power_mwe": 20.22
   },
   "mars_surface_power_budget": {
+    "available_power_mwe": 25.0,
+    "required_average_power_mwe": 20.63,
+    "required_peak_power_mwe": 24.42,
+    "power_margin_mwe": 4.37,
+    "power_margin_fraction": 0.2118,
+    "power_closes": true,
     "itemized_power_budget": {
       "Mining & Excavation": {
         "avg_kw": 421.9,
@@ -100,13 +106,11 @@
         "avg_kw": 150.0,
         "peak_kw": 250.0
       },
-      "Unallocated Margin (15%)": {
+      "Unallocated Operating Margin (15%)": {
         "avg_kw": 2637.0,
         "peak_kw": 3516.0
       }
-    },
-    "total_surface_avg_mwe": 20.63,
-    "total_surface_peak_mwe": 24.42
+    }
   },
   "thermal_rejection_and_radiators": {
     "reactor_thermal_output_mwth": 58.6,
@@ -158,8 +162,29 @@
       "Unallocated Contingency Reserve (20%)": 25.52
     },
     "total_isru_plant_dry_mass_mt": 256.29,
-    "precursor_lander_capacity_mt": 150.0,
-    "mass_margin_mt": -106.29
+    "precursor_lander_delivery_architecture": {
+      "number_of_landers": 2,
+      "capacity_per_lander_mt": 150.0,
+      "total_precursor_delivery_capacity_mt": 300.0,
+      "mass_margin_mt": 43.71,
+      "payload_closes": true,
+      "lander_breakdown": {
+        "lander_1_power_thermal_mt": 145.0,
+        "lander_1_capacity_mt": 150.0,
+        "lander_1_margin_mt": 5.0,
+        "lander_2_processing_depot_mt": 111.29,
+        "lander_2_capacity_mt": 150.0,
+        "lander_2_margin_mt": 38.71
+      }
+    }
+  },
+  "precursor_payload_closure": {
+    "payload_closes": true,
+    "total_plant_mass_mt": 256.29,
+    "number_of_landers": 2,
+    "capacity_per_lander_mt": 150.0,
+    "total_delivery_capacity_mt": 300.0,
+    "mass_margin_mt": 43.71
   },
   "architecture_trade_matrix": {
     "Architecture_A": {
@@ -170,17 +195,17 @@
       "key_blocker": "Enterprise X cannot land on Mars; crew cannot wait 500 days on surface for unproven ISRU to manufacture return propellant."
     },
     "Architecture_B": {
-      "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline)",
+      "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline - 2x 150t Landers)",
       "isru_mass_mt": 256.29,
       "crewed_vessel_landing_required": false,
-      "precursor_missions_required": 1,
+      "precursor_missions_required": 2,
       "feasibility": "ENGINEERINGALLY CONDITIONAL",
       "key_benefit": "Return propellant is 100% manufactured, stored, and verified BEFORE crew departs Earth. Zero crew mortality risk from ISRU failure."
     },
     "Architecture_C": {
       "name": "Multi-Mission Precursor Depot Network",
       "isru_mass_mt": 307.548,
-      "precursor_missions_required": 3,
+      "precursor_missions_required": 4,
       "feasibility": "FEASIBLE BUT HIGH COST",
       "key_benefit": "Redundant parallel production plants, higher resilience."
     },

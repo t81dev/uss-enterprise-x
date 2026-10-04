@@ -2,7 +2,7 @@
 
 **Document ID:** `62-mars-isru-closure-v1.md`
 **Calculation Engine Source:** `engineering/calculations/mars_isru.py`
-**Program Phase:** Phase 8 — Mars ISRU, Propellant Logistics & Physical Mission Closure
+**Program Phase:** Phase 8.1 — Mars ISRU, Propellant Logistics & Physical Mission Closure (Remediated)
 **Program Status:** **ENGINEERINGALLY CONDITIONAL (Status Assignment: B — MARS ISRU CONDITIONALLY CLOSED)**
 
 ---
@@ -11,12 +11,12 @@
 
 `62-mars-isru-closure-v1.md` delivers the canonical engineering closure evaluation for manufacturing return-mission propellant on Mars for USS Enterprise X (Project Occam-7).
 
-Following full first-principles chemical, thermodynamic, power, thermal, structural, and timeline integration:
+Following full first-principles chemical, thermodynamic, power, thermal, structural, multi-lander payload, and timeline integration:
 
 ### Primary Decision Gate Outcome:
 > **STATUS B — MARS ISRU CONDITIONALLY CLOSED (`ENGINEERINGALLY CONDITIONAL`)**
 
-The physics, mass conservation, stoichiometry, and thermodynamic energy balances **close quantitatively**. However, physical mission closure strictly mandates transitioning from onboard crewed ISRU (Architecture A) to a **Precursor Autonomous Robotic ISRU Depot (Architecture B)** pre-deployed 1–2 synodic cycles before crew departure from Earth.
+The physics, mass conservation, stoichiometry, and thermodynamic energy balances **close quantitatively**. However, physical mission closure strictly mandates transitioning from onboard crewed ISRU (Architecture A) to a **Precursor Autonomous Robotic ISRU Depot (Architecture B - 2x 150t Landers)** pre-deployed 1–2 synodic cycles before crew departure from Earth.
 
 ---
 
@@ -97,12 +97,12 @@ $$E_{total} = 54.71 + 0.65 + 0.30 + 1.40 + 1.80 + 16.42 + 1.15 = \mathbf{76.42\t
 
 ### E. Campaign Power Demand (500-Day Campaign):
 * Total Campaign Electrical Energy: **$210,990.64\text{ MWh}$** ($210.991\text{ GWh}$)
-* Average Continuous Electrical Power: **$17.58\text{ MWe}$**
-* Peak Electrical Demand ($15\%$ starting margin): **$20.22\text{ MWe}$**
+* Process Continuous Electrical Power: **$17.58\text{ MWe}$**
+* Total Gross Surface Power Demand (incl. Aux, ZBO, Habitat, Margin): **$20.63\text{ MWe}$ Average / $24.42\text{ MWe}$ Peak**
 
 ---
 
-## 5. Industrial Equipment Processing Rates
+## 5. Industrial Equipment Processing Rates & Multi-Lander Delivery Architecture
 
 To manufacture $2,760.80\text{ MT}$ of $\text{LH}_2$ over a 500-day surface campaign:
 
@@ -110,3 +110,9 @@ To manufacture $2,760.80\text{ MT}$ of $\text{LH}_2$ over a 500-day surface camp
 * **Daily Water Extraction Rate:** $53.00\text{ MT water/day}$ ($2,208.40\text{ kg/hour}$)
 * **Daily Regolith Excavation Rate:** $106.00\text{ MT regolith/day}$ ($4,416.80\text{ kg/hour}$)
 * **Mining Fleet Sizing:** 2x $2.5\text{-tonne}$ autonomous excavators operating at $50\%$ duty cycle ($2,208\text{ kg/hour}$ per robot).
+
+### Resolved Precursor Delivery Architecture (2x Heavy Cargo Landers @ 150t capacity = 300t total):
+* **Total Plant Dry Mass:** $256.29\text{ MT}$ (includes $108.17\text{ MT}$ radiators)
+* **Lander 1 Payload:** Power Plant ($28.50\text{ t}$) + Radiators ($108.17\text{ t}$) + Controls ($8.33\text{ t}$) = **$145.00\text{ MT}$** (Margin: $+5.00\text{ MT}$)
+* **Lander 2 Payload:** Mining, Processing, Liquefaction, Storage Depot & Spares = **$111.29\text{ MT}$** (Margin: $+38.71\text{ MT}$)
+* **Total Precursor Delivery Margin:** **$+43.71\text{ MT}$** (Hard Deployability Gate: `PASSED`)

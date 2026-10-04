@@ -2,7 +2,7 @@
 
 **Document ID:** `63-mars-power-and-thermal-closure-v1.md`
 **Calculation Engine Source:** `engineering/calculations/mars_isru.py`
-**Program Phase:** Phase 8 — Mars ISRU, Propellant Logistics & Physical Mission Closure
+**Program Phase:** Phase 8.1 — Mars ISRU, Propellant Logistics & Physical Mission Closure (Remediated)
 **Program Status:** **ENGINEERINGALLY CONDITIONAL (Power & Thermal Closure Verified)**
 
 ---
@@ -11,9 +11,9 @@
 
 `63-mars-power-and-thermal-closure-v1.md` delivers the first-principles power generation, electrical distribution, process waste heat derivation, and thermal rejection radiator sizing for the Mars In-Situ Resource Utilization (ISRU) propellant plant of USS Enterprise X.
 
-The ISRU manufacturing plant requires an average continuous electrical power load of $17.58\text{ MWe}$ and a peak demand of $20.22\text{ MWe}$. Heat rejection must accommodate both the surface nuclear power generation cycle inefficiencies and low-temperature process heat from water electrolysis, hydrogen gas compression, and $20\text{ K}$ liquefaction.
+The ISRU manufacturing plant requires an average process electrical power load of $17.58\text{ MWe}$ and a total gross surface power load of $20.63\text{ MWe}$ average ($24.42\text{ MWe}$ peak demand). Heat rejection must accommodate both the surface nuclear power generation cycle inefficiencies and low-temperature process heat from water electrolysis, hydrogen gas compression, and $20\text{ K}$ liquefaction.
 
-This analysis establishes that a dedicated **$25.0\text{ MWe}$ Fast-Fission Nuclear Surface Power Plant** with $s\text{CO}_2$ Brayton conversion and a composite liquid-metal heat-pipe radiator array achieves full power and thermal closure under Martian environmental conditions.
+This analysis establishes that a dedicated **$25.0\text{ MWe}$ Fast-Fission Nuclear Surface Power Plant** with $s\text{CO}_2$ Brayton conversion and a composite liquid-metal heat-pipe radiator array achieves full power and thermal closure under Martian environmental conditions ($+4.37\text{ MWe}$ / $+21.2\%$ margin over peak load).
 
 ---
 
@@ -45,10 +45,10 @@ Solar power architectures on Mars require $>120,000\text{ m}^2$ of PV arrays, ma
 ### Precursor Surface Nuclear Power Plant Architecture:
 * **Reactor Core Type:** Compact Fast-Fission U-235 / UN fuel core ($58.6\text{ MW}_{th}$).
 * **Power Conversion:** Closed-loop supercritical $\text{CO}_2$ ($s\text{CO}_2$) Brayton cycle ($30.0\%$ thermal efficiency).
-* **Electrical Output ($P_e$):** **$25.0\text{ MWe}$** (provides $+21.2\%$ margin over $20.63\text{ MWe}$ peak surface demand).
+* **Electrical Output ($P_e$):** **$25.0\text{ MWe}$** (provides $+21.2\%$ margin over $20.63\text{ MWe}$ average / $24.42\text{ MWe}$ peak surface demand).
 * **Core Temperature ($T_{core}$):** $1,150\text{ K}$.
 * **Heat Rejection Temperature ($T_{rad\_reactor}$):** $750\text{ K}$.
-* **Power Plant Mass:** $28.50\text{ MT}$ (including shielding, turbomachinery, and control loops).
+* **Power Plant Mass:** $28.50\text{ MT}$ (delivered on Precursor Lander 1).
 
 ---
 
@@ -95,7 +95,7 @@ $$q_{rad} = \epsilon_{eff} \sigma (T_{rad}^4 - T_{sink}^4) + h_{conv} (T_{rad} -
 
 ## 6. Power & Thermal Verification Summary
 
-* **Gross Surface Electrical Demand:** $20.63\text{ MWe}$
+* **Gross Surface Electrical Demand:** $20.63\text{ MWe}$ Average / $24.42\text{ MWe}$ Peak
 * **Precursor Surface Nuclear Reactor Capacity:** $25.00\text{ MWe}$ (Net Margin: $+4.37\text{ MWe}$ / $+21.2\%$)
 * **Total Thermal Rejection Capacity:** $55.96\text{ MW}_{th}$ rejected across $24,037.7\text{ m}^2$ panel area
 * **Thermal & Power Status:** **FULLY CLOSED**

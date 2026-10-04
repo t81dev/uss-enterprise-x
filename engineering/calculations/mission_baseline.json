@@ -4,7 +4,28 @@
     "dry_mass_mt": 1470.96,
     "initial_propellant_mt": 2500.0,
     "gross_departure_mass_mt": 3970.96,
-    "isru_reloaded_lh2_mt": 2200.0
+    "isru_reloaded_lh2_mt": 2197.3
+  },
+  "precursor_depot_final_state": {
+    "state": "CREW_DEPARTURE_AUTHORIZED",
+    "precursor_payload_closes": true,
+    "precursor_deployed": true,
+    "isru_operational": true,
+    "isru_power_closure": true,
+    "isru_thermal_closure": true,
+    "production_complete": true,
+    "depot_verified": true,
+    "storage_system_operational": true,
+    "inventory_measurement_valid": true,
+    "transfer_system_operational": true,
+    "inventory_mt": {
+      "produced_mt": 2760.8,
+      "storage_boiloff_mt": 34.8,
+      "initial_stored_mt": 2726.0,
+      "remaining_depot_stored_mt": 449.0,
+      "verified_inventory_available_mt": 449.0,
+      "transferred_to_ship_mt": 2197.3
+    }
   },
   "events": [
     {
@@ -44,35 +65,37 @@
       "lh2_remaining_mt": 307.11
     },
     {
-      "phase": "Mars ISRU Propellant Reload & Stay (640d)",
+      "phase": "Mars Propellant Transfer & Operations (640d)",
       "type": "MARS_ISRU_STAY",
       "duration_days": 640.0,
       "end_time_days": 820.05,
-      "lh2_reloaded_mt": 2200.0,
-      "gross_mass_mt": 3813.92,
+      "depot_debit_mt": 2277.0,
+      "transfer_losses_mt": 79.69,
+      "lh2_reloaded_mt": 2197.3,
+      "gross_mass_mt": 3811.4,
       "crew_health_percent": 100.0,
       "accumulated_radiation_csv": 31.8
     },
     {
       "phase": "Trans-Earth Injection (TEI)",
       "type": "NTP_BURN",
-      "duration_s": 1552.6,
-      "start_mass_mt": 3813.92,
-      "lh2_burned_mt": 703.64,
-      "end_mass_mt": 3110.28,
+      "duration_s": 1551.5,
+      "start_mass_mt": 3811.4,
+      "lh2_burned_mt": 703.17,
+      "end_mass_mt": 3108.23,
       "thrust_kn": 4000.0,
       "actual_dv_kms": 1.8,
       "numerical_dv_kms": 1.8,
-      "lh2_remaining_mt": 1643.02
+      "lh2_remaining_mt": 1640.96
     },
     {
       "phase": "Inbound Cruise NEP (180d)",
       "type": "NEP_BURN",
       "duration_days": 29.77,
-      "start_mass_mt": 3110.28,
+      "start_mass_mt": 3108.23,
       "lnh3_burned_mt": 42.58,
-      "boiloff_lost_mt": 4.8918,
-      "end_mass_mt": 3062.81,
+      "boiloff_lost_mt": 4.8857,
+      "end_mass_mt": 3060.76,
       "thrust_n": 568.13,
       "actual_dv_kms": 0.473,
       "lnh3_remaining_mt": 0.0
@@ -80,13 +103,13 @@
     {
       "phase": "Earth Orbit Capture (EOI)",
       "type": "NTP_BURN",
-      "duration_s": 3614.5,
-      "start_mass_mt": 3062.81,
-      "lh2_burned_mt": 1638.13,
+      "duration_s": 3610.0,
+      "start_mass_mt": 3060.76,
+      "lh2_burned_mt": 1636.07,
       "end_mass_mt": 1424.69,
       "thrust_kn": 4000.0,
-      "actual_dv_kms": 6.755,
-      "numerical_dv_kms": 6.754,
+      "actual_dv_kms": 6.749,
+      "numerical_dv_kms": 6.749,
       "lh2_remaining_mt": 0.0
     }
   ],
@@ -104,46 +127,41 @@
       0.0
     ],
     "v_vec_kms": [
-      -4.376,
-      31.82
+      -4.37,
+      31.819
     ],
-    "total_delta_v_kms": 18.534,
+    "total_delta_v_kms": 18.528,
     "reactor_power_mwth": 100.0,
     "electrical_power_mwe": 20.0,
     "thermal_load_mwth": 82.0,
     "radiator_capacity_mwth": 133.35,
     "crew_count": 24,
     "crew_health_percent": 100.0,
-    "accumulated_radiation_csv": 33.88,
-    "isru_depot_state": {
-      "precursor_deployed": true,
-      "plant_operational": true,
-      "power_closure": true,
-      "thermal_closure": true,
-      "lh2_produced_mt": 2760.8,
-      "lh2_depot_stored_mt": 2726.0,
-      "lh2_reloaded_to_ship_mt": 2200.0
-    }
+    "accumulated_radiation_csv": 33.88
   },
   "success_predicate_assessment": {
     "mission_success": true,
     "program_status": "ENGINEERINGALLY CONDITIONAL",
     "predicates": {
+      "precursor_delivery_closes": true,
+      "precursor_deployed": true,
+      "isru_operational": true,
+      "depot_inventory_verified": true,
+      "return_propellant_manufactured": true,
+      "return_propellant_stored": true,
+      "surface_power_closes": true,
+      "thermal_closure": true,
+      "earth_departure_authorized": true,
       "earth_departure_achieved": true,
       "mars_encounter_achieved": true,
       "mars_operations_completed": true,
-      "isru_precursor_deployed": true,
-      "isru_infrastructure_operational": true,
-      "return_propellant_manufactured": true,
-      "return_propellant_stored": true,
-      "isru_power_closure_verified": true,
-      "isru_thermal_closure_verified": true,
-      "earth_return_achieved": true,
+      "refueling_conserves_mass": true,
+      "return_trajectory_closes": true,
       "earth_capture_achieved": true,
       "propellant_reserve_positive": true,
       "power_margin_positive": true,
       "thermal_margin_positive": true,
-      "crew_health_viable": true,
+      "crew_survivability_closes": true,
       "no_critical_failure": true
     }
   },
