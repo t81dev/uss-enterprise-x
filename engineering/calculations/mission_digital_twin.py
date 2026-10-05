@@ -54,6 +54,7 @@ class PrecursorDepotState:
         self.isru_operational = False
         self.isru_power_closure = False
         self.isru_thermal_closure = False
+        self.isru_thermal_margin_compliance = False
         self.production_complete = False
         self.depot_verified = False
 
@@ -90,6 +91,7 @@ class PrecursorDepotState:
             "isru_operational": self.isru_operational,
             "isru_power_closure": self.isru_power_closure,
             "isru_thermal_closure": self.isru_thermal_closure,
+            "isru_thermal_margin_compliance": self.isru_thermal_margin_compliance,
             "production_complete": self.production_complete,
             "depot_verified": self.depot_verified,
             "storage_system_operational": self.storage_system_operational,
@@ -213,7 +215,7 @@ class MissionDigitalTwin:
             "error_mt": round(error_mt, 8)
         })
 
-    def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None):
+    def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None, required_thermal_margin_fraction=0.0):
         """Phase A — Precursor Autonomous Mission:
         Earth -> Mars -> land -> deploy -> commission -> produce propellant -> liquefy -> store -> verify depot.
         Calculates and verifies depot output before crew departure authorization.
@@ -240,10 +242,14 @@ class MissionDigitalTwin:
 
         p_eval = self.isru_model.surface_power_budget(available_power_mwe=available_power_mwe, gross_lh2_mt=required_gross_lh2_mt)
         power_and_energy = self.isru_model.calculate_electrolysis_and_liquefaction_power(required_gross_lh2_mt)
-        thermal_eval = self.isru_model.calculate_thermal_rejection_and_radiator(power_and_energy["avg_continuous_power_mwe"])
+        thermal_eval = self.isru_model.calculate_thermal_rejection_and_radiator(
+            power_and_energy["avg_continuous_power_mwe"],
+            required_thermal_margin_fraction=required_thermal_margin_fraction
+        )
 
         self.depot.isru_power_closure = p_eval["power_closes"]
         self.depot.isru_thermal_closure = thermal_eval["thermal_closure"]
+        self.depot.isru_thermal_margin_compliance = thermal_eval["thermal_margin_compliance"]
 
         if not (self.depot.isru_power_closure and self.depot.isru_thermal_closure):
             self.depot.isru_operational = False
@@ -585,8 +591,8 @@ class MissionDigitalTwin:
         p_tei = "Trans-Earth Injection (TEI)" in [e["phase"] for e in self.event_log]
         p_earth_cap = "Earth Orbit Capture (EOI)" in [e["phase"] for e in self.event_log]
 
-        # Machine-Readable Single Authoritative Success Predicates
-        success_predicates = {
+        # Canonical Machine-Readable Success Predicates
+        canonical_predicates = {
             "precursor_payload_closure": self.depot.precursor_payload_closes,
             "precursor_deployed": self.depot.precursor_deployed,
             "isru_operational": self.depot.isru_operational,
@@ -595,7 +601,7 @@ class MissionDigitalTwin:
             "verified_depot_inventory_sufficient": self.depot.lh2_initial_stored_mt >= REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT - 1e-2,
             "surface_average_power_closure": self.depot.isru_power_closure,
             "surface_peak_power_closure": self.depot.isru_power_closure,
-            "thermal_closure": self.depot.isru_thermal_closure,
+            "surface_thermal_closure": self.depot.isru_thermal_closure,
             "earth_departure_authorized": self.depot.state == PrecursorDepotState.CREW_DEPARTURE_AUTHORIZED,
             "earth_departure_achieved": p_earth_dep,
             "mars_encounter_achieved": p_mars_enc,
@@ -610,27 +616,33 @@ class MissionDigitalTwin:
             "vehicle_thermal_margin": (self.state.radiator_capacity_mwth - self.state.thermal_load_mwth) >= -0.01,
             "crew_survivability": (self.state.crew_health_percent >= 70.0 and self.state.accumulated_radiation_csv <= 100.0),
             "mass_conservation": all(log["error_mt"] < 1e-4 for log in self.mass_conservation_log),
-            "no_critical_failure": not self.state.system_health["critical_failure"],
-            # Legacy/Alias keys for test suite backwards compatibility
-            "precursor_delivery_closes": self.depot.precursor_payload_closes,
-            "depot_inventory_verified": self.depot.depot_verified,
-            "return_propellant_manufactured": self.depot.lh2_produced_mt >= REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT - 1e-2,
-            "return_propellant_stored": self.depot.lh2_initial_stored_mt >= REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT - 1e-2,
-            "surface_power_closes": self.depot.isru_power_closure,
-            "mars_operations_completed": p_mars_stay,
-            "refueling_conserves_mass": all(log["error_mt"] < 1e-4 for log in self.mass_conservation_log),
-            "propellant_reserve_positive": (self.state.lh2_mt >= -1e-4 and self.state.lnh3_mt >= -1e-4),
-            "power_margin_positive": (self.state.electrical_power_mwe - self.state.house_load_mwe - self.state.propulsion_load_mwe) >= -0.01,
-            "thermal_margin_positive": (self.state.radiator_capacity_mwth - self.state.thermal_load_mwth) >= -0.01,
-            "crew_survivability_closes": (self.state.crew_health_percent >= 70.0 and self.state.accumulated_radiation_csv <= 100.0)
+            "no_critical_failure": not self.state.system_health["critical_failure"]
         }
 
-        mission_success = all(success_predicates.values())
+        mission_success = all(canonical_predicates.values())
+
+        # Map legacy aliases to canonical values for backward compatibility
+        all_predicates = dict(canonical_predicates)
+        all_predicates.update({
+            "thermal_closure": canonical_predicates["surface_thermal_closure"],
+            "precursor_delivery_closes": canonical_predicates["precursor_payload_closure"],
+            "depot_inventory_verified": canonical_predicates["depot_verified"],
+            "return_propellant_manufactured": canonical_predicates["verified_depot_inventory_sufficient"],
+            "return_propellant_stored": canonical_predicates["verified_depot_inventory_sufficient"],
+            "surface_power_closes": canonical_predicates["surface_average_power_closure"],
+            "mars_operations_completed": canonical_predicates["mars_operations_complete"],
+            "refueling_conserves_mass": canonical_predicates["mass_conservation"],
+            "propellant_reserve_positive": canonical_predicates["propellant_reserve_sufficient"],
+            "power_margin_positive": canonical_predicates["vehicle_power_margin"],
+            "thermal_margin_positive": canonical_predicates["vehicle_thermal_margin"],
+            "crew_survivability_closes": canonical_predicates["crew_survivability"]
+        })
 
         return {
             "mission_success": mission_success,
             "program_status": "ENGINEERINGALLY CONDITIONAL" if mission_success else "PHYSICALLY INFEASIBLE",
-            "predicates": success_predicates
+            "predicates": all_predicates,
+            "canonical_predicates": canonical_predicates
         }
 
     def run_crewed_mission(self):

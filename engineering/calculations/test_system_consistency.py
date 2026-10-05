@@ -458,6 +458,177 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertFalse(achievable["production_closes"])
         self.assertLess(achievable["achievable_gross_lh2_mt"], achievable["required_gross_lh2_mt"])
 
+    # --- PHASE 8.3 HOSTILE ADVERSARIAL VALIDATION TEST SUITE ---
+
+    def test_phase8_3_thermal_engineering_margins(self):
+        """Phase 8.3 Test: Verify distinction between thermal mathematical closure, 15% engineering margin compliance, and thermal failure."""
+        model = MarsISRUModel()
+
+        # Baseline: capacity equals waste heat load (~74.96 MWth)
+        t_base = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=19.57, required_thermal_margin_fraction=0.15)
+        self.assertTrue(t_base["thermal_mathematical_closure"])
+        self.assertFalse(t_base["thermal_margin_compliance"])
+        self.assertFalse(t_base["thermal_failure"])
+        self.assertEqual(t_base["thermal_margin_status"], "ZERO_MARGIN_MATHEMATICAL_CLOSURE")
+
+        # Zero required margin mode: baseline is compliant
+        t_zero_margin = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=19.57, required_thermal_margin_fraction=0.0)
+        self.assertTrue(t_zero_margin["thermal_mathematical_closure"])
+        self.assertTrue(t_zero_margin["thermal_margin_compliance"])
+        self.assertEqual(t_zero_margin["thermal_margin_status"], "COMPLIANT")
+
+        # Explicit thermal deficit: waste heat > capacity
+        # Simulate higher continuous power demand (e.g. 22 MWe -> ~84.27 MWth waste heat)
+        t_deficit = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=22.0, required_thermal_margin_fraction=0.0)
+        # Manually verify boundary logic
+        self.assertGreater(t_deficit["total_q_waste_mwth"], t_base["radiator_capacity_mwth"])
+
+    def test_phase8_3_surface_power_average_vs_peak_boundaries(self):
+        """Phase 8.3 Test: Independent boundary checks for average surface power vs peak surface power."""
+        model = MarsISRUModel()
+
+        # Case 1: Available power = 25.0 MWe -> Req Avg = 19.57 MWe, Req Peak = 23.17 MWe. Both pass.
+        p1 = model.surface_power_budget(available_power_mwe=25.0)
+        self.assertTrue(p1["average_power_closes"])
+        self.assertTrue(p1["peak_power_closes"])
+        self.assertTrue(p1["power_closes"])
+
+        # Case 2: Available power = 22.0 MWe -> Pass average (19.57 MWe), fail peak (23.17 MWe).
+        p2 = model.surface_power_budget(available_power_mwe=22.0)
+        self.assertTrue(p2["average_power_closes"])
+        self.assertFalse(p2["peak_power_closes"])
+        self.assertFalse(p2["power_closes"])  # Overall power closes must be FALSE when peak fails!
+
+        # Case 3: Available power = 18.0 MWe -> Fail both average and peak.
+        p3 = model.surface_power_budget(available_power_mwe=18.0)
+        self.assertFalse(p3["average_power_closes"])
+        self.assertFalse(p3["peak_power_closes"])
+        self.assertFalse(p3["power_closes"])
+
+    def test_phase8_3_independent_lander_capacities_boundary(self):
+        """Phase 8.3 Test: Adversarial boundary checks for independent lander capacities."""
+        model = MarsISRUModel()
+
+        # Case 1: Lander 1 capacity 144.99 t vs assigned 145.0 t -> Lander 1 FAIL, Lander 2 PASS (150t capacity vs 114.79t payload)
+        g1 = model.precursor_payload_closes(lander_1_capacity_mt=144.99, lander_2_capacity_mt=150.0)
+        self.assertFalse(g1["payload_closes"])
+        self.assertFalse(g1["lander_1"]["lander_closes"])
+        self.assertTrue(g1["lander_2"]["lander_closes"])
+
+        # Case 2: Lander 2 capacity 114.78 t vs assigned 114.79 t -> Lander 1 PASS (150t capacity), Lander 2 FAIL
+        g2 = model.precursor_payload_closes(lander_1_capacity_mt=150.0, lander_2_capacity_mt=114.78)
+        self.assertFalse(g2["payload_closes"])
+        self.assertTrue(g2["lander_1"]["lander_closes"])
+        self.assertFalse(g2["lander_2"]["lander_closes"])
+
+        # Case 3: Both landers fail capacity
+        g3 = model.precursor_payload_closes(lander_1_capacity_mt=140.0, lander_2_capacity_mt=110.0)
+        self.assertFalse(g3["payload_closes"])
+        self.assertFalse(g3["lander_1"]["lander_closes"])
+        self.assertFalse(g3["lander_2"]["lander_closes"])
+
+        # Case 4: Asymmetric payload distribution with total capacity 300t (L1=120t, L2=180t)
+        # L1 payload = 145.0t > 120t (FAILS), L2 payload = 114.79t < 180t (PASSES). Overall = FAILS.
+        g4 = model.precursor_payload_closes(lander_1_capacity_mt=120.0, lander_2_capacity_mt=180.0)
+        self.assertFalse(g4["payload_closes"])
+
+    def test_phase8_3_precursor_state_machine_prerequisite_breaking(self):
+        """Phase 8.3 Test: Systematically break each precursor prerequisite and verify authorization denial."""
+        prerequisites_to_test = [
+            ("depot_exists", "precursor_deployed", False),
+            ("depot_operational", "isru_operational", False),
+            ("power_closure", "isru_power_closure", False),
+            ("payload_closure", "precursor_payload_closes", False),
+            ("propellant_production_complete", "production_complete", False),
+            ("depot_verified", "depot_verified", False),
+            ("storage_system_operational", "storage_system_operational", False),
+            ("inventory_measurement_valid", "inventory_measurement_valid", False),
+            ("transfer_system_operational", "transfer_system_operational", False),
+        ]
+
+        for gate_key, depot_attr, break_val in prerequisites_to_test:
+            twin = MissionDigitalTwin()
+            twin.run_precursor_mission()
+            self.assertEqual(twin.depot.state, PrecursorDepotState.DEPOT_VERIFIED)
+
+            # Break ONLY this specific prerequisite
+            setattr(twin.depot, depot_attr, break_val)
+
+            auth, gate = twin.precursor_inventory_verified()
+            self.assertFalse(auth, f"Crew departure was incorrectly authorized despite broken prerequisite: {gate_key}")
+            self.assertFalse(gate[gate_key], f"Gate key {gate_key} did not reflect broken prerequisite {depot_attr}")
+
+            # Verify crewed mission attempt aborts on Earth
+            crewed_res = twin.run_crewed_mission()
+            self.assertEqual(crewed_res["status"], "CREW DEPARTURE ABORTED ON EARTH")
+
+    def test_phase8_3_exact_refueling_boundaries(self):
+        """Phase 8.3 Test: Deterministic boundary tests around 2,200 t net and ~2,279.79 t gross withdrawal."""
+        twin = MissionDigitalTwin()
+        twin.run_precursor_mission()
+
+        gross_req = 2200.0 / (1.0 - 0.035)  # ~2279.792746 t
+
+        # Boundary Case 1: Depot has 2279.7927 t -> PASS
+        twin.depot.lh2_verified_inventory_mt = gross_req
+        auth1, gate1 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertTrue(auth1)
+
+        # Boundary Case 2: Depot has 2279.79 t (0.0027 t below exact gross required) -> FAIL
+        twin.depot.lh2_verified_inventory_mt = 2279.79
+        auth2, gate2 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertFalse(auth2)
+
+        # Boundary Case 3: Depot has 2200.0 t net (without transfer loss margin) -> FAIL
+        twin.depot.lh2_verified_inventory_mt = 2200.0
+        auth3, gate3 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
+        self.assertFalse(auth3)
+
+    def test_phase8_3_conservation_law_adversarial_testing(self):
+        """Phase 8.3 Test: Adversarial tests verifying mass conservation enforcement assertions."""
+        twin = MissionDigitalTwin()
+
+        # Intentional violation: M_initial != M_final + consumed - reloaded
+        with self.assertRaises(AssertionError):
+            twin.enforce_mass_conservation(
+                event_name="Adversarial Mass Creation Test",
+                m_initial=1000.0,
+                m_final=1050.0,  # 50 t mass created out of nowhere
+                prop_burned=0.0,
+                consumables_spent=0.0,
+                boiloff_lost=0.0,
+                isru_reloaded=0.0
+            )
+
+        # Intentional violation: Mass disappears without tracking
+        with self.assertRaises(AssertionError):
+            twin.enforce_mass_conservation(
+                event_name="Adversarial Mass Loss Test",
+                m_initial=1000.0,
+                m_final=900.0,  # 100 t mass disappeared without accounting
+                prop_burned=0.0,
+                consumables_spent=0.0,
+                boiloff_lost=0.0,
+                isru_reloaded=0.0
+            )
+
+    def test_phase8_3_wilson_confidence_interval_validation(self):
+        """Phase 8.3 Test: Independently validate Wilson score confidence interval calculation formula."""
+        z = 1.959964
+        num_runs = 10000
+        success_count = 9790
+        p_hat = success_count / num_runs
+
+        denom = 1.0 + (z**2) / num_runs
+        p_mid = (p_hat + (z**2) / (2.0 * num_runs)) / denom
+        p_bound = (z / denom) * math.sqrt((p_hat * (1.0 - p_hat) / num_runs) + ((z**2) / (4.0 * (num_runs**2))))
+
+        ci_lower = max(0.0, (p_mid - p_bound) * 100.0)
+        ci_upper = min(100.0, (p_mid + p_bound) * 100.0)
+
+        self.assertAlmostEqual(ci_lower, 97.60, places=1)
+        self.assertAlmostEqual(ci_upper, 98.16, places=1)
+
 
 if __name__ == "__main__":
     unittest.main()

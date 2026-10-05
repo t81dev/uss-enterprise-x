@@ -1,6 +1,7 @@
 {
   "random_seed": 42,
   "total_simulated_cases": 10000,
+  "correlated_degradation_mode": false,
   "successful_cases": 9790,
   "failed_cases": 210,
   "estimated_success_probability_percent": 97.9,
@@ -10,91 +11,241 @@
     "method": "Wilson Score Interval"
   },
   "program_status": "ENGINEERINGALLY CONDITIONAL",
-  "primary_failure_reason_counts": {
-    "precursor_payload_closure": 80,
-    "isru_operational": 130
+  "causal_failure_taxonomy": {
+    "root_failure_counts": {
+      "lander_payload_capacity_deficit": 80,
+      "surface_power_generation_deficit": 210,
+      "surface_thermal_rejection_deficit": 80
+    },
+    "simultaneous_independent_root_failure_runs": 80,
+    "simultaneous_root_distribution": {
+      "3_simultaneous_roots": 80
+    },
+    "cascaded_predicate_counts": {
+      "precursor_payload_closure": 80,
+      "precursor_deployed": 80,
+      "isru_operational": 210,
+      "isru_production_complete": 210,
+      "depot_verified": 210,
+      "verified_depot_inventory_sufficient": 210,
+      "surface_average_power_closure": 210,
+      "surface_peak_power_closure": 210,
+      "surface_thermal_closure": 80,
+      "earth_departure_authorized": 210,
+      "earth_departure_achieved": 210,
+      "mars_encounter_achieved": 210,
+      "mars_operations_complete": 210,
+      "return_propellant_available": 210,
+      "return_propellant_transfer_complete": 210,
+      "return_propellant_loaded": 210,
+      "return_trajectory_closes": 210,
+      "earth_capture_achieved": 210
+    },
+    "algorithm": "Independent physical root cause identification before downstream predicate evaluation"
   },
-  "overlapping_predicate_failure_counts": {
-    "precursor_payload_closure": 80,
-    "precursor_deployed": 80,
-    "isru_operational": 210,
-    "isru_production_complete": 210,
-    "depot_verified": 210,
-    "verified_depot_inventory_sufficient": 210,
-    "surface_average_power_closure": 210,
-    "surface_peak_power_closure": 210,
-    "thermal_closure": 80,
-    "earth_departure_authorized": 210,
-    "earth_departure_achieved": 210,
-    "mars_encounter_achieved": 210,
-    "mars_operations_complete": 210,
-    "return_propellant_available": 210,
-    "return_propellant_transfer_complete": 210,
-    "return_propellant_loaded": 210,
-    "return_trajectory_closes": 210,
-    "earth_capture_achieved": 210,
-    "precursor_delivery_closes": 80,
-    "depot_inventory_verified": 210,
-    "return_propellant_manufactured": 210,
-    "return_propellant_stored": 210,
-    "surface_power_closes": 210,
-    "mars_operations_completed": 210
+  "parameter_provenance_audit": {
+    "dry_mass_mt": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Epistemic",
+      "description": "Baseline unmargined dry mass subtotal (1,225.80 t) with 20% AIAA reserve margin -> 1,470.96 t dry baseline.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 1470.96,
+        "std_dev": 73.548
+      }
+    },
+    "lh2_mass_mt": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Epistemic",
+      "description": "Initial spacecraft LH2 propellant load at Earth departure.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 2200.0,
+        "std_dev": 66.0
+      }
+    },
+    "lnh3_mass_mt": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Epistemic",
+      "description": "Initial spacecraft LNH3 propellant load at Earth departure.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 300.0,
+        "std_dev": 9.0
+      }
+    },
+    "nep_efficiency": {
+      "classification": "MODELED",
+      "uncertainty_type": "Aleatory/Epistemic",
+      "description": "Magnetoplasmadynamic (MPD) thruster electrical-to-jet power efficiency.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.58,
+        "max": 0.72
+      }
+    },
+    "ice_concentration": {
+      "classification": "MEASURED",
+      "uncertainty_type": "Epistemic",
+      "description": "Glacial ice mass fraction in Martian regolith at landing site.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.35,
+        "max": 0.65
+      }
+    },
+    "soec_efficiency": {
+      "classification": "PROVISIONAL",
+      "uncertainty_type": "Epistemic",
+      "description": "Solid Oxide Electrolyzer Cell high-temperature stack efficiency.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.6,
+        "max": 0.8
+      }
+    },
+    "liquefaction_efficiency": {
+      "classification": "PROVISIONAL",
+      "uncertainty_type": "Epistemic",
+      "description": "Hydrogen cryocooler Carnot liquefaction efficiency.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.2,
+        "max": 0.3
+      }
+    },
+    "isru_power_mwe": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Epistemic",
+      "description": "Precursor surface nuclear reactor electrical output rating.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 25.0,
+        "std_dev": 1.2
+      }
+    },
+    "isru_availability": {
+      "classification": "ASSUMED",
+      "uncertainty_type": "Aleatory",
+      "description": "Plant operational duty cycle / availability factor during active operating days.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.8,
+        "max": 1.0
+      }
+    },
+    "downtime_days": {
+      "classification": "ASSUMED",
+      "uncertainty_type": "Aleatory",
+      "description": "Total scheduled and unscheduled maintenance offline duration during precursor campaign.",
+      "distribution": "Uniform",
+      "parameters": {
+        "min": 0.0,
+        "max": 90.0
+      }
+    },
+    "lander_1_capacity_mt": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Aleatory",
+      "description": "Super-Heavy Cargo Lander 1 payload capacity.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 150.0,
+        "std_dev": 5.0
+      }
+    },
+    "lander_2_capacity_mt": {
+      "classification": "SPECIFIED",
+      "uncertainty_type": "Aleatory",
+      "description": "Super-Heavy Cargo Lander 2 payload capacity.",
+      "distribution": "Gaussian",
+      "parameters": {
+        "mean": 150.0,
+        "std_dev": 5.0
+      }
+    }
+  },
+  "isru_effective_days_formula_semantics": {
+    "formula": "effective_days = (nominal_window_days - downtime_days) * isru_availability",
+    "audit_result": "VERIFIED_CORRECT",
+    "interpretation": "downtime_days models total offline scheduled/unscheduled maintenance outages; isru_availability models operational duty factor during active production days."
+  },
+  "verified_depot_reserve_stress_analysis": {
+    "nominal_baseline_reserve_mt": 446.21,
+    "mean_reserve_mt": 436.84,
+    "min_reserve_mt": 0.0,
+    "max_reserve_mt": 446.21,
+    "percentile_5th_mt": 446.21,
+    "median_50th_mt": 446.21,
+    "percentile_95th_mt": 446.21,
+    "deficit_runs_count": 0
   },
   "parameter_sensitivity_ranking": [
     {
       "parameter": "soec_efficiency",
       "spearman_rank_correlation": 0.1824,
-      "correlation_magnitude": 0.1824
+      "correlation_magnitude": 0.1824,
+      "provenance_classification": "PROVISIONAL"
     },
     {
       "parameter": "isru_downtime_days",
       "spearman_rank_correlation": -0.1337,
-      "correlation_magnitude": 0.1337
+      "correlation_magnitude": 0.1337,
+      "provenance_classification": "UNKNOWN"
     },
     {
       "parameter": "isru_power_mwe",
       "spearman_rank_correlation": 0.1051,
-      "correlation_magnitude": 0.1051
+      "correlation_magnitude": 0.1051,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "liquefaction_efficiency",
       "spearman_rank_correlation": 0.094,
-      "correlation_magnitude": 0.094
+      "correlation_magnitude": 0.094,
+      "provenance_classification": "PROVISIONAL"
     },
     {
       "parameter": "lander_1_capacity_mt",
       "spearman_rank_correlation": 0.0448,
-      "correlation_magnitude": 0.0448
+      "correlation_magnitude": 0.0448,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "lh2_mass_mt",
       "spearman_rank_correlation": 0.0118,
-      "correlation_magnitude": 0.0118
+      "correlation_magnitude": 0.0118,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "lander_2_capacity_mt",
       "spearman_rank_correlation": 0.0061,
-      "correlation_magnitude": 0.0061
+      "correlation_magnitude": 0.0061,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "lnh3_mass_mt",
       "spearman_rank_correlation": 0.0059,
-      "correlation_magnitude": 0.0059
+      "correlation_magnitude": 0.0059,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "ice_concentration",
       "spearman_rank_correlation": -0.003,
-      "correlation_magnitude": 0.003
+      "correlation_magnitude": 0.003,
+      "provenance_classification": "MEASURED"
     },
     {
       "parameter": "dry_mass_mt",
       "spearman_rank_correlation": -0.0015,
-      "correlation_magnitude": 0.0015
+      "correlation_magnitude": 0.0015,
+      "provenance_classification": "SPECIFIED"
     },
     {
       "parameter": "nep_efficiency",
       "spearman_rank_correlation": 0.0008,
-      "correlation_magnitude": 0.0008
+      "correlation_magnitude": 0.0008,
+      "provenance_classification": "MODELED"
     }
   ]
 }
