@@ -1,70 +1,100 @@
 {
+  "random_seed": 42,
   "total_simulated_cases": 10000,
-  "successful_cases": 9961,
-  "failed_cases": 39,
-  "success_rate_percent": 99.61,
+  "successful_cases": 9790,
+  "failed_cases": 210,
+  "estimated_success_probability_percent": 97.9,
+  "confidence_interval_95_percent": {
+    "lower_bound_percent": 97.6,
+    "upper_bound_percent": 98.16,
+    "method": "Wilson Score Interval"
+  },
   "program_status": "ENGINEERINGALLY CONDITIONAL",
-  "failure_reason_breakdown": {
-    "isru_operational": 39,
-    "depot_inventory_verified": 39,
-    "return_propellant_manufactured": 39,
-    "return_propellant_stored": 39,
-    "surface_power_closes": 39,
-    "earth_departure_authorized": 39,
-    "earth_departure_achieved": 39,
-    "mars_encounter_achieved": 39,
-    "mars_operations_completed": 39,
-    "return_trajectory_closes": 39,
-    "earth_capture_achieved": 39
+  "primary_failure_reason_counts": {
+    "precursor_payload_closure": 80,
+    "isru_operational": 130
+  },
+  "overlapping_predicate_failure_counts": {
+    "precursor_payload_closure": 80,
+    "precursor_deployed": 80,
+    "isru_operational": 210,
+    "isru_production_complete": 210,
+    "depot_verified": 210,
+    "verified_depot_inventory_sufficient": 210,
+    "surface_average_power_closure": 210,
+    "surface_peak_power_closure": 210,
+    "thermal_closure": 80,
+    "earth_departure_authorized": 210,
+    "earth_departure_achieved": 210,
+    "mars_encounter_achieved": 210,
+    "mars_operations_complete": 210,
+    "return_propellant_available": 210,
+    "return_propellant_transfer_complete": 210,
+    "return_propellant_loaded": 210,
+    "return_trajectory_closes": 210,
+    "earth_capture_achieved": 210,
+    "precursor_delivery_closes": 80,
+    "depot_inventory_verified": 210,
+    "return_propellant_manufactured": 210,
+    "return_propellant_stored": 210,
+    "surface_power_closes": 210,
+    "mars_operations_completed": 210
   },
   "parameter_sensitivity_ranking": [
     {
-      "parameter": "isru_downtime_days",
-      "impact_score_pct": 59.1,
-      "mean_success": 44.99,
-      "mean_fail": 71.58
-    },
-    {
       "parameter": "soec_efficiency",
-      "impact_score_pct": 10.7,
-      "mean_success": 0.7,
-      "mean_fail": 0.63
+      "spearman_rank_correlation": 0.1824,
+      "correlation_magnitude": 0.1824
     },
     {
-      "parameter": "liquefaction_efficiency",
-      "impact_score_pct": 9.4,
-      "mean_success": 0.25,
-      "mean_fail": 0.23
+      "parameter": "isru_downtime_days",
+      "spearman_rank_correlation": -0.1337,
+      "correlation_magnitude": 0.1337
     },
     {
       "parameter": "isru_power_mwe",
-      "impact_score_pct": 8.78,
-      "mean_success": 25.0,
-      "mean_fail": 22.8
+      "spearman_rank_correlation": 0.1051,
+      "correlation_magnitude": 0.1051
     },
     {
-      "parameter": "ice_concentration",
-      "impact_score_pct": 1.42,
-      "mean_success": 0.5,
-      "mean_fail": 0.51
+      "parameter": "liquefaction_efficiency",
+      "spearman_rank_correlation": 0.094,
+      "correlation_magnitude": 0.094
     },
     {
-      "parameter": "capacity_per_lander_mt",
-      "impact_score_pct": 0.29,
-      "mean_success": 150.02,
-      "mean_fail": 150.46
-    },
-    {
-      "parameter": "dry_mass_mt",
-      "impact_score_pct": 0.14,
-      "mean_success": 1472.17,
-      "mean_fail": 1474.23
+      "parameter": "lander_1_capacity_mt",
+      "spearman_rank_correlation": 0.0448,
+      "correlation_magnitude": 0.0448
     },
     {
       "parameter": "lh2_mass_mt",
-      "impact_score_pct": 0.08,
-      "mean_success": 2199.45,
-      "mean_fail": 2197.59
+      "spearman_rank_correlation": 0.0118,
+      "correlation_magnitude": 0.0118
+    },
+    {
+      "parameter": "lander_2_capacity_mt",
+      "spearman_rank_correlation": 0.0061,
+      "correlation_magnitude": 0.0061
+    },
+    {
+      "parameter": "lnh3_mass_mt",
+      "spearman_rank_correlation": 0.0059,
+      "correlation_magnitude": 0.0059
+    },
+    {
+      "parameter": "ice_concentration",
+      "spearman_rank_correlation": -0.003,
+      "correlation_magnitude": 0.003
+    },
+    {
+      "parameter": "dry_mass_mt",
+      "spearman_rank_correlation": -0.0015,
+      "correlation_magnitude": 0.0015
+    },
+    {
+      "parameter": "nep_efficiency",
+      "spearman_rank_correlation": 0.0008,
+      "correlation_magnitude": 0.0008
     }
   ]
 }

@@ -26,6 +26,14 @@ import os
 G0 = 9.80665                  # m/s^2
 STEFAN_BOLTZMANN = 5.670374419e-8 # W/(m^2 K^4)
 
+# Single Authoritative Mission Propellant Constants
+REQUIRED_NET_RETURN_LH2_MT = 2200.0  # Net usable return propellant loaded to spacecraft (t)
+F_CHILLDOWN = 0.010                  # Chill-down of lines and loading couplers (1.0%)
+F_FLASH = 0.015                      # Flash evaporation during tank filling (1.5%)
+F_RESIDUALS = 0.010                  # Unusable trapped tank residuals (1.0%)
+F_TOTAL_TRANSFER_LOSS = F_CHILLDOWN + F_FLASH + F_RESIDUALS  # Total transfer loss fraction (3.5%)
+REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT = REQUIRED_NET_RETURN_LH2_MT / (1.0 - F_TOTAL_TRANSFER_LOSS)  # ~2279.79 t
+
 # Molar Masses (g/mol)
 MOLAR_MASS_H2 = 2.01588
 MOLAR_MASS_O2 = 31.9988
@@ -55,7 +63,7 @@ H_CONVECTION_MARS = 3.5        # W/(m^2 K) - Forced/natural convection in 6 mbar
 class MarsISRUModel:
     """Complete first-principles Mars ISRU Propellant Accounting and Engineering Model."""
 
-    def __init__(self, target_lh2_net_mt=2200.0, production_days=500.0, ice_concentration=0.50,
+    def __init__(self, target_lh2_net_mt=REQUIRED_NET_RETURN_LH2_MT, production_days=500.0, ice_concentration=0.50,
                  soec_efficiency=0.72, liquefaction_efficiency=0.25):
         self.target_lh2_net_mt = target_lh2_net_mt  # Net usable return propellant required
         self.production_days = production_days      # Available production campaign duration
@@ -240,17 +248,26 @@ class MarsISRUModel:
         required_average_mwe = total_avg_kw / 1000.0
         required_peak_mwe = total_peak_kw / 1000.0
 
-        margin_mwe = available_power_mwe - required_average_mwe
-        margin_fraction = margin_mwe / required_average_mwe if required_average_mwe > 0 else 0.0
+        average_margin_mwe = available_power_mwe - required_average_mwe
+        peak_margin_mwe = available_power_mwe - required_peak_mwe
 
-        power_closes = (available_power_mwe >= required_average_mwe) and (available_power_mwe >= required_peak_mwe * 0.95)
+        average_margin_fraction = average_margin_mwe / required_average_mwe if required_average_mwe > 0 else 0.0
+        peak_margin_fraction = peak_margin_mwe / required_peak_mwe if required_peak_mwe > 0 else 0.0
+
+        average_power_closes = (available_power_mwe >= required_average_mwe)
+        peak_power_closes = (available_power_mwe >= required_peak_mwe)
+        power_closes = average_power_closes and peak_power_closes
 
         return {
             "available_power_mwe": round(available_power_mwe, 2),
             "required_average_power_mwe": round(required_average_mwe, 2),
             "required_peak_power_mwe": round(required_peak_mwe, 2),
-            "power_margin_mwe": round(margin_mwe, 2),
-            "power_margin_fraction": round(margin_fraction, 4),
+            "average_power_margin_mwe": round(average_margin_mwe, 2),
+            "peak_power_margin_mwe": round(peak_margin_mwe, 2),
+            "power_margin_mwe": round(average_margin_mwe, 2), # for backward compatibility
+            "power_margin_fraction": round(average_margin_fraction, 4),
+            "average_power_closes": average_power_closes,
+            "peak_power_closes": peak_power_closes,
             "power_closes": power_closes,
             "itemized_power_budget": itemized_budget
         }
@@ -293,17 +310,68 @@ class MarsISRUModel:
         specific_radiator_mass_kg_m2 = 4.5
         radiator_mass_mt = (total_radiator_area_m2 * specific_radiator_mass_kg_m2) / 1000.0
 
+        # Physical heat rejection capacity verification
+        q_rejection_reactor_mwth = (area_reactor_rad_m2 * q_rad_reactor_w) / 1e6
+        q_rejection_isru_mwth = (area_isru_rad_m2 * q_rad_isru_w) / 1e6
+        total_radiator_capacity_mwth = q_rejection_reactor_mwth + q_rejection_isru_mwth
+
+        thermal_closure = (total_radiator_capacity_mwth >= total_q_waste_mw - 1e-4)
+
         return {
             "reactor_thermal_output_mwth": round(q_reactor_th_mw, 2),
             "reactor_waste_heat_mwth": round(q_reactor_waste_mw, 2),
             "isru_plant_waste_heat_mwth": round(q_isru_waste_mw, 2),
             "total_q_waste_mwth": round(total_q_waste_mw, 2),
+            "radiator_capacity_mwth": round(total_radiator_capacity_mwth, 2),
+            "thermal_margin_mwth": round(total_radiator_capacity_mwth - total_q_waste_mw, 2),
+            "thermal_closure": thermal_closure,
             "radiator_area_m2": {
                 "high_temp_reactor_rad_m2": round(area_reactor_rad_m2, 1),
                 "low_temp_isru_rad_m2": round(area_isru_rad_m2, 1),
                 "total_radiator_area_m2": round(total_radiator_area_m2, 1)
             },
             "radiator_mass_mt": round(radiator_mass_mt, 2)
+        }
+
+    def calculate_achievable_production(self, available_power_mwe=25.0, operating_days=None):
+        """Calculates achievable LH2 production from available power, operating days, and process efficiency.
+        The target is the RESULT of the physical model, not the input that forces the result.
+        """
+        if operating_days is None:
+            operating_days = self.production_days
+
+        # Determine gross LH2 required by baseline accounting
+        acct = self.calculate_propellant_accounting()
+        required_gross_lh2_mt = acct["gross_lh2_production_mt"]
+
+        # Calculate specific electrical energy required per kg LH2
+        e_info = self.calculate_electrolysis_and_liquefaction_power(required_gross_lh2_mt)
+        specific_energy_kwh_per_kg = e_info["specific_energy_kwh_per_kg_lh2"]
+
+        # Power allocated to ISRU process (subtracting habitat/science load of 150 kW)
+        process_power_mwe = max(0.0, available_power_mwe - 0.150)
+
+        # Achievable hourly production rate (kg LH2 / hour)
+        achievable_kg_hr = (process_power_mwe * 1000.0) / specific_energy_kwh_per_kg
+
+        # Achievable campaign production (metric tonnes)
+        operating_hours = max(0.0, operating_days * 24.0)
+        achievable_gross_lh2_mt = (achievable_kg_hr * operating_hours) / 1000.0
+
+        # Production closes if achievable gross production meets or exceeds required gross production
+        production_closes = (achievable_gross_lh2_mt >= required_gross_lh2_mt - 1e-2)
+
+        return {
+            "available_power_mwe": round(available_power_mwe, 2),
+            "process_power_mwe": round(process_power_mwe, 2),
+            "operating_days": round(operating_days, 1),
+            "specific_energy_kwh_per_kg_lh2": round(specific_energy_kwh_per_kg, 2),
+            "achievable_lh2_rate_kg_hr": round(achievable_kg_hr, 2),
+            "achievable_lh2_rate_kg_day": round(achievable_kg_hr * 24.0, 1),
+            "achievable_gross_lh2_mt": round(achievable_gross_lh2_mt, 2),
+            "required_gross_lh2_mt": round(required_gross_lh2_mt, 2),
+            "production_margin_mt": round(achievable_gross_lh2_mt - required_gross_lh2_mt, 2),
+            "production_closes": production_closes
         }
 
     def calculate_production_rates_and_equipment(self, gross_lh2_mt, water_extracted_mt, regolith_excavated_mt):
@@ -338,9 +406,41 @@ class MarsISRUModel:
             }
         }
 
-    def create_isru_plant_mass_budget(self, radiator_mass_mt):
-        """Creates itemized ISRU plant mass budget and multi-lander delivery breakdown."""
-        budget = {
+    def create_isru_plant_mass_budget(self, radiator_mass_mt, lander_1_capacity_mt=150.0, lander_2_capacity_mt=150.0):
+        """Creates itemized ISRU plant mass budget, physical packing list, and multi-lander delivery breakdown.
+
+        Explicit Physical Lander Allocation Table:
+        Lander 1 (Power & Thermal Infrastructure):
+        - Surface Nuclear Reactor & sCO2 Brayton: 28.50 t
+        - Thermal Radiator Array: radiator_mass_mt (108.17 t baseline)
+        - Power Distribution & Conditioning: 3.50 t
+        - Structural Frame & Thermal Controls (L1): 4.83 t
+
+        Lander 2 (Mining, Processing, Liquefaction & Depot Infrastructure):
+        - Autonomous Excavators (2x 2.5t): 5.00 t
+        - Autonomous Haulers & Conveyors: 4.50 t
+        - Regolith Crushers & Feeders: 3.20 t
+        - Water Extraction Melting Reactors: 6.80 t
+        - Water Purification & Distillation: 2.50 t
+        - SOEC Electrolyzer Stacks (10 MWe): 12.00 t
+        - Hydrogen Gas Purifiers & Compressors: 4.80 t
+        - Claude Liquefaction Plant: 14.50 t
+        - Cryocoolers & Reverse Brayton Units: 3.80 t
+        - Surface LH2 Storage Tanks & MLI: 18.50 t
+        - Fluid Transfer Plumbing & Couplers: 2.20 t
+        - Structural Frames & Support Struts (L2): 3.67 t
+        - Avionics, Controls & Communications: 1.80 t
+        - Spare Parts & Tooling: 6.00 t
+        - Unallocated Contingency Reserve (20%): 25.52 t
+        """
+        lander_1_items = {
+            "Surface Nuclear Reactor & sCO2 Brayton": 28.50,
+            "Thermal Radiator Array": radiator_mass_mt,
+            "Power Distribution & Conditioning": 3.50,
+            "Structural Frame & Thermal Controls (L1)": 4.83
+        }
+
+        lander_2_items = {
             "Autonomous Excavators (2x 2.5t)": 5.00,
             "Autonomous Haulers & Conveyors": 4.50,
             "Regolith Crushers & Feeders": 3.20,
@@ -352,67 +452,102 @@ class MarsISRUModel:
             "Cryocoolers & Reverse Brayton Units": 3.80,
             "Surface LH2 Storage Tanks & MLI": 18.50,
             "Fluid Transfer Plumbing & Couplers": 2.20,
-            "Surface Nuclear Reactor & sCO2 Brayton": 28.50,
-            "Thermal Radiator Array": radiator_mass_mt,
-            "Structural Frames & Support Struts": 8.50,
+            "Structural Frames & Support Struts (L2)": 3.67,
             "Avionics, Controls & Communications": 1.80,
             "Spare Parts & Tooling": 6.00,
             "Unallocated Contingency Reserve (20%)": 25.52
         }
 
-        total_mass_mt = sum(budget.values())
+        lander_1_payload_mt = sum(lander_1_items.values())
+        lander_2_payload_mt = sum(lander_2_items.values())
+        total_mass_mt = lander_1_payload_mt + lander_2_payload_mt
 
-        # Resolved Architecture: Option B - Multi-Lander Delivery (2x Heavy Cargo Landers @ 150t payload capacity each = 300t total capacity)
-        # Lander 1 Payload: Surface Nuclear Reactor (28.5t), Radiators (108.17t), Structural/Controls (8.33t) = 145.0t
-        # Lander 2 Payload: Mining, Processing, Liquefaction, Storage Depot & Spares = 111.29t
-        number_of_landers = 2
-        capacity_per_lander_mt = 150.0
-        total_delivery_capacity_mt = number_of_landers * capacity_per_lander_mt
-        mass_margin_mt = total_delivery_capacity_mt - total_mass_mt
+        # Consolidated budget dictionary for backward compatibility
+        budget = {}
+        budget.update(lander_1_items)
+        budget.update(lander_2_items)
 
-        lander_1_payload_mt = 28.50 + radiator_mass_mt + 8.33
-        lander_2_payload_mt = total_mass_mt - lander_1_payload_mt
+        # Individual lander closure checks
+        l1_margin_mt = lander_1_capacity_mt - lander_1_payload_mt
+        l2_margin_mt = lander_2_capacity_mt - lander_2_payload_mt
+
+        l1_closes = (lander_1_payload_mt <= lander_1_capacity_mt)
+        l2_closes = (lander_2_payload_mt <= lander_2_capacity_mt)
+        payload_closes = l1_closes and l2_closes
+
+        total_capacity_mt = lander_1_capacity_mt + lander_2_capacity_mt
+        mass_margin_mt = total_capacity_mt - total_mass_mt
+
+        allocation_table = [
+            {"component": k, "mass_mt": round(v, 2), "lander_assignment": "Lander 1 (Power & Thermal)"}
+            for k, v in lander_1_items.items()
+        ] + [
+            {"component": k, "mass_mt": round(v, 2), "lander_assignment": "Lander 2 (Processing & Depot)"}
+            for k, v in lander_2_items.items()
+        ]
 
         return {
             "itemized_isru_mass_mt": {k: round(v, 2) for k, v in budget.items()},
+            "allocation_table": allocation_table,
             "total_isru_plant_dry_mass_mt": round(total_mass_mt, 2),
             "precursor_lander_delivery_architecture": {
-                "number_of_landers": number_of_landers,
-                "capacity_per_lander_mt": capacity_per_lander_mt,
-                "total_precursor_delivery_capacity_mt": total_delivery_capacity_mt,
+                "number_of_landers": 2,
+                "total_precursor_delivery_capacity_mt": round(total_capacity_mt, 2),
                 "mass_margin_mt": round(mass_margin_mt, 2),
-                "payload_closes": mass_margin_mt >= 0.0,
+                "payload_closes": payload_closes,
                 "lander_breakdown": {
-                    "lander_1_power_thermal_mt": round(lander_1_payload_mt, 2),
-                    "lander_1_capacity_mt": capacity_per_lander_mt,
-                    "lander_1_margin_mt": round(capacity_per_lander_mt - lander_1_payload_mt, 2),
-                    "lander_2_processing_depot_mt": round(lander_2_payload_mt, 2),
-                    "lander_2_capacity_mt": capacity_per_lander_mt,
-                    "lander_2_margin_mt": round(capacity_per_lander_mt - lander_2_payload_mt, 2)
+                    "lander_1": {
+                        "assigned_payload_mt": round(lander_1_payload_mt, 2),
+                        "capacity_mt": round(lander_1_capacity_mt, 2),
+                        "payload_margin_mt": round(l1_margin_mt, 2),
+                        "payload_fraction": round(lander_1_payload_mt / max(1e-6, lander_1_capacity_mt), 4),
+                        "lander_closes": l1_closes
+                    },
+                    "lander_2": {
+                        "assigned_payload_mt": round(lander_2_payload_mt, 2),
+                        "capacity_mt": round(lander_2_capacity_mt, 2),
+                        "payload_margin_mt": round(l2_margin_mt, 2),
+                        "payload_fraction": round(lander_2_payload_mt / max(1e-6, lander_2_capacity_mt), 4),
+                        "lander_closes": l2_closes
+                    }
                 }
             }
         }
 
-    def precursor_payload_closes(self, number_of_landers=2, capacity_per_lander_mt=150.0):
-        """Hard deployability gate evaluating whether precursor payload physically closes."""
+    def precursor_payload_closes(self, number_of_landers=2, capacity_per_lander_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None):
+        """Hard deployability gate evaluating whether precursor payload physically closes.
+        Requires that EVERY lander individually closes (assigned_payload <= capacity).
+        """
+        if lander_1_capacity_mt is None:
+            lander_1_capacity_mt = capacity_per_lander_mt
+        if lander_2_capacity_mt is None:
+            lander_2_capacity_mt = capacity_per_lander_mt if number_of_landers >= 2 else 0.0
+
         accounting = self.calculate_propellant_accounting()
         gross_lh2_mt = accounting["gross_lh2_production_mt"]
         power_info = self.calculate_electrolysis_and_liquefaction_power(gross_lh2_mt)
         thermal = self.calculate_thermal_rejection_and_radiator(power_info["avg_continuous_power_mwe"])
-        plant_budget = self.create_isru_plant_mass_budget(thermal["radiator_mass_mt"])
+        plant_budget = self.create_isru_plant_mass_budget(
+            thermal["radiator_mass_mt"],
+            lander_1_capacity_mt=lander_1_capacity_mt,
+            lander_2_capacity_mt=lander_2_capacity_mt
+        )
 
-        total_plant_mass_mt = plant_budget["total_isru_plant_dry_mass_mt"]
-        total_capacity_mt = number_of_landers * capacity_per_lander_mt
+        arch = plant_budget["precursor_lander_delivery_architecture"]
+        l1_info = arch["lander_breakdown"]["lander_1"]
+        l2_info = arch["lander_breakdown"]["lander_2"]
 
-        closes = (total_plant_mass_mt <= total_capacity_mt)
+        closes = l1_info["lander_closes"] and l2_info["lander_closes"]
 
         return {
             "payload_closes": closes,
-            "total_plant_mass_mt": total_plant_mass_mt,
+            "total_plant_mass_mt": plant_budget["total_isru_plant_dry_mass_mt"],
             "number_of_landers": number_of_landers,
             "capacity_per_lander_mt": capacity_per_lander_mt,
-            "total_delivery_capacity_mt": total_capacity_mt,
-            "mass_margin_mt": round(total_capacity_mt - total_plant_mass_mt, 2)
+            "total_delivery_capacity_mt": round(lander_1_capacity_mt + lander_2_capacity_mt, 2),
+            "mass_margin_mt": round(lander_1_capacity_mt + lander_2_capacity_mt - plant_budget["total_isru_plant_dry_mass_mt"], 2),
+            "lander_1": l1_info,
+            "lander_2": l2_info
         }
 
     def evaluate_architecture_trades(self, total_isru_mass_mt):
@@ -493,6 +628,7 @@ class MarsISRUModel:
         power_and_energy = self.calculate_electrolysis_and_liquefaction_power(gross_lh2_mt)
         power_budget = self.surface_power_budget(available_power_mwe=25.0, gross_lh2_mt=gross_lh2_mt)
         thermal = self.calculate_thermal_rejection_and_radiator(power_and_energy["avg_continuous_power_mwe"])
+        achievable_production = self.calculate_achievable_production(available_power_mwe=25.0, operating_days=self.production_days)
 
         water_mt = feedstock["glacial_ice"]["raw_water_extracted_mt"]
         regolith_mt = feedstock["glacial_ice"]["regolith_excavated_mt"]
@@ -511,6 +647,7 @@ class MarsISRUModel:
             "power_and_energy_derivation": power_and_energy,
             "mars_surface_power_budget": power_budget,
             "thermal_rejection_and_radiators": thermal,
+            "achievable_production": achievable_production,
             "production_rates_and_equipment": rates,
             "isru_plant_mass_budget": plant_mass,
             "precursor_payload_closure": payload_closure,

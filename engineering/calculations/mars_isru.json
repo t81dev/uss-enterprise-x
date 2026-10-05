@@ -62,8 +62,12 @@
     "available_power_mwe": 25.0,
     "required_average_power_mwe": 20.63,
     "required_peak_power_mwe": 24.42,
+    "average_power_margin_mwe": 4.37,
+    "peak_power_margin_mwe": 0.58,
     "power_margin_mwe": 4.37,
     "power_margin_fraction": 0.2118,
+    "average_power_closes": true,
+    "peak_power_closes": true,
     "power_closes": true,
     "itemized_power_budget": {
       "Mining & Excavation": {
@@ -117,12 +121,27 @@
     "reactor_waste_heat_mwth": 41.02,
     "isru_plant_waste_heat_mwth": 14.94,
     "total_q_waste_mwth": 55.96,
+    "radiator_capacity_mwth": 55.96,
+    "thermal_margin_mwth": 0.0,
+    "thermal_closure": true,
     "radiator_area_m2": {
       "high_temp_reactor_rad_m2": 2703.2,
       "low_temp_isru_rad_m2": 21334.5,
       "total_radiator_area_m2": 24037.7
     },
     "radiator_mass_mt": 108.17
+  },
+  "achievable_production": {
+    "available_power_mwe": 25.0,
+    "process_power_mwe": 24.85,
+    "operating_days": 500.0,
+    "specific_energy_kwh_per_kg_lh2": 76.42,
+    "achievable_lh2_rate_kg_hr": 325.18,
+    "achievable_lh2_rate_kg_day": 7804.2,
+    "achievable_gross_lh2_mt": 3902.12,
+    "required_gross_lh2_mt": 2760.8,
+    "production_margin_mt": 1141.32,
+    "production_closes": true
   },
   "production_rates_and_equipment": {
     "campaign_duration_days": 500.0,
@@ -143,6 +162,10 @@
   },
   "isru_plant_mass_budget": {
     "itemized_isru_mass_mt": {
+      "Surface Nuclear Reactor & sCO2 Brayton": 28.5,
+      "Thermal Radiator Array": 108.17,
+      "Power Distribution & Conditioning": 3.5,
+      "Structural Frame & Thermal Controls (L1)": 4.83,
       "Autonomous Excavators (2x 2.5t)": 5.0,
       "Autonomous Haulers & Conveyors": 4.5,
       "Regolith Crushers & Feeders": 3.2,
@@ -154,49 +177,165 @@
       "Cryocoolers & Reverse Brayton Units": 3.8,
       "Surface LH2 Storage Tanks & MLI": 18.5,
       "Fluid Transfer Plumbing & Couplers": 2.2,
-      "Surface Nuclear Reactor & sCO2 Brayton": 28.5,
-      "Thermal Radiator Array": 108.17,
-      "Structural Frames & Support Struts": 8.5,
+      "Structural Frames & Support Struts (L2)": 3.67,
       "Avionics, Controls & Communications": 1.8,
       "Spare Parts & Tooling": 6.0,
       "Unallocated Contingency Reserve (20%)": 25.52
     },
-    "total_isru_plant_dry_mass_mt": 256.29,
+    "allocation_table": [
+      {
+        "component": "Surface Nuclear Reactor & sCO2 Brayton",
+        "mass_mt": 28.5,
+        "lander_assignment": "Lander 1 (Power & Thermal)"
+      },
+      {
+        "component": "Thermal Radiator Array",
+        "mass_mt": 108.17,
+        "lander_assignment": "Lander 1 (Power & Thermal)"
+      },
+      {
+        "component": "Power Distribution & Conditioning",
+        "mass_mt": 3.5,
+        "lander_assignment": "Lander 1 (Power & Thermal)"
+      },
+      {
+        "component": "Structural Frame & Thermal Controls (L1)",
+        "mass_mt": 4.83,
+        "lander_assignment": "Lander 1 (Power & Thermal)"
+      },
+      {
+        "component": "Autonomous Excavators (2x 2.5t)",
+        "mass_mt": 5.0,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Autonomous Haulers & Conveyors",
+        "mass_mt": 4.5,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Regolith Crushers & Feeders",
+        "mass_mt": 3.2,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Water Extraction Melting Reactors",
+        "mass_mt": 6.8,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Water Purification & Distillation",
+        "mass_mt": 2.5,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "SOEC Electrolyzer Stacks (10 MWe)",
+        "mass_mt": 12.0,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Hydrogen Gas Purifiers & Compressors",
+        "mass_mt": 4.8,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Claude Liquefaction Plant",
+        "mass_mt": 14.5,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Cryocoolers & Reverse Brayton Units",
+        "mass_mt": 3.8,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Surface LH2 Storage Tanks & MLI",
+        "mass_mt": 18.5,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Fluid Transfer Plumbing & Couplers",
+        "mass_mt": 2.2,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Structural Frames & Support Struts (L2)",
+        "mass_mt": 3.67,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Avionics, Controls & Communications",
+        "mass_mt": 1.8,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Spare Parts & Tooling",
+        "mass_mt": 6.0,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      },
+      {
+        "component": "Unallocated Contingency Reserve (20%)",
+        "mass_mt": 25.52,
+        "lander_assignment": "Lander 2 (Processing & Depot)"
+      }
+    ],
+    "total_isru_plant_dry_mass_mt": 259.79,
     "precursor_lander_delivery_architecture": {
       "number_of_landers": 2,
-      "capacity_per_lander_mt": 150.0,
       "total_precursor_delivery_capacity_mt": 300.0,
-      "mass_margin_mt": 43.71,
+      "mass_margin_mt": 40.21,
       "payload_closes": true,
       "lander_breakdown": {
-        "lander_1_power_thermal_mt": 145.0,
-        "lander_1_capacity_mt": 150.0,
-        "lander_1_margin_mt": 5.0,
-        "lander_2_processing_depot_mt": 111.29,
-        "lander_2_capacity_mt": 150.0,
-        "lander_2_margin_mt": 38.71
+        "lander_1": {
+          "assigned_payload_mt": 145.0,
+          "capacity_mt": 150.0,
+          "payload_margin_mt": 5.0,
+          "payload_fraction": 0.9667,
+          "lander_closes": true
+        },
+        "lander_2": {
+          "assigned_payload_mt": 114.79,
+          "capacity_mt": 150.0,
+          "payload_margin_mt": 35.21,
+          "payload_fraction": 0.7653,
+          "lander_closes": true
+        }
       }
     }
   },
   "precursor_payload_closure": {
     "payload_closes": true,
-    "total_plant_mass_mt": 256.29,
+    "total_plant_mass_mt": 259.79,
     "number_of_landers": 2,
     "capacity_per_lander_mt": 150.0,
     "total_delivery_capacity_mt": 300.0,
-    "mass_margin_mt": 43.71
+    "mass_margin_mt": 40.21,
+    "lander_1": {
+      "assigned_payload_mt": 145.0,
+      "capacity_mt": 150.0,
+      "payload_margin_mt": 5.0,
+      "payload_fraction": 0.9667,
+      "lander_closes": true
+    },
+    "lander_2": {
+      "assigned_payload_mt": 114.79,
+      "capacity_mt": 150.0,
+      "payload_margin_mt": 35.21,
+      "payload_fraction": 0.7653,
+      "lander_closes": true
+    }
   },
   "architecture_trade_matrix": {
     "Architecture_A": {
       "name": "Crewed Enterprise Carries Onboard ISRU",
-      "isru_mass_mt": 256.29,
+      "isru_mass_mt": 259.79,
       "crewed_vessel_landing_required": true,
       "feasibility": "PHYSICALLY INFEASIBLE / ARCHITECTURE INVALID",
       "key_blocker": "Enterprise X cannot land on Mars; crew cannot wait 500 days on surface for unproven ISRU to manufacture return propellant."
     },
     "Architecture_B": {
       "name": "Precursor Autonomous Robotic ISRU Depot (Canonical Baseline - 2x 150t Landers)",
-      "isru_mass_mt": 256.29,
+      "isru_mass_mt": 259.79,
       "crewed_vessel_landing_required": false,
       "precursor_missions_required": 2,
       "feasibility": "ENGINEERINGALLY CONDITIONAL",
@@ -204,7 +343,7 @@
     },
     "Architecture_C": {
       "name": "Multi-Mission Precursor Depot Network",
-      "isru_mass_mt": 307.548,
+      "isru_mass_mt": 311.748,
       "precursor_missions_required": 4,
       "feasibility": "FEASIBLE BUT HIGH COST",
       "key_benefit": "Redundant parallel production plants, higher resilience."
