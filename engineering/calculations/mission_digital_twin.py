@@ -26,6 +26,7 @@ from mars_isru import (
     F_RESIDUALS,
     F_TOTAL_TRANSFER_LOSS,
     REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT,
+    REQUIRED_THERMAL_MARGIN_FRACTION,
 )
 
 # Physical and Astronomical Constants
@@ -52,6 +53,8 @@ class PrecursorDepotState:
         self.precursor_payload_closes = False
         self.precursor_deployed = False
         self.isru_operational = False
+        self.isru_average_power_closure = False
+        self.isru_peak_power_closure = False
         self.isru_power_closure = False
         self.isru_thermal_closure = False
         self.isru_thermal_margin_compliance = False
@@ -89,6 +92,8 @@ class PrecursorDepotState:
             "precursor_payload_closes": self.precursor_payload_closes,
             "precursor_deployed": self.precursor_deployed,
             "isru_operational": self.isru_operational,
+            "isru_average_power_closure": self.isru_average_power_closure,
+            "isru_peak_power_closure": self.isru_peak_power_closure,
             "isru_power_closure": self.isru_power_closure,
             "isru_thermal_closure": self.isru_thermal_closure,
             "isru_thermal_margin_compliance": self.isru_thermal_margin_compliance,
@@ -97,8 +102,10 @@ class PrecursorDepotState:
             "storage_system_operational": self.storage_system_operational,
             "inventory_measurement_valid": self.inventory_measurement_valid,
             "transfer_system_operational": self.transfer_system_operational,
-            "required_return_propellant_mt": round(self.required_return_propellant_mt, 2),
-            "required_gross_depot_withdrawal_mt": round(self.required_gross_depot_withdrawal_mt, 2),
+            "required_return_propellant_mt": self.required_return_propellant_mt,
+            "required_return_propellant_display_mt": round(self.required_return_propellant_mt, 2),
+            "required_gross_depot_withdrawal_mt": self.required_gross_depot_withdrawal_mt,
+            "required_gross_depot_withdrawal_display_mt": round(self.required_gross_depot_withdrawal_mt, 2),
             "actual_net_propellant_loaded_mt": round(self.actual_net_propellant_loaded_mt, 2),
             "actual_transfer_loss_mt": round(self.actual_transfer_loss_mt, 2),
             "remaining_verified_depot_inventory_mt": round(self.remaining_verified_depot_inventory_mt, 2),
@@ -215,7 +222,7 @@ class MissionDigitalTwin:
             "error_mt": round(error_mt, 8)
         })
 
-    def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None, required_thermal_margin_fraction=0.0):
+    def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None, required_thermal_margin_fraction=REQUIRED_THERMAL_MARGIN_FRACTION, fixed_radiator_capacity_mwth=None):
         """Phase A — Precursor Autonomous Mission:
         Earth -> Mars -> land -> deploy -> commission -> produce propellant -> liquefy -> store -> verify depot.
         Calculates and verifies depot output before crew departure authorization.
@@ -244,14 +251,17 @@ class MissionDigitalTwin:
         power_and_energy = self.isru_model.calculate_electrolysis_and_liquefaction_power(required_gross_lh2_mt)
         thermal_eval = self.isru_model.calculate_thermal_rejection_and_radiator(
             power_and_energy["avg_continuous_power_mwe"],
-            required_thermal_margin_fraction=required_thermal_margin_fraction
+            required_thermal_margin_fraction=required_thermal_margin_fraction,
+            fixed_radiator_capacity_mwth=fixed_radiator_capacity_mwth
         )
 
+        self.depot.isru_average_power_closure = p_eval["average_power_closes"]
+        self.depot.isru_peak_power_closure = p_eval["peak_power_closes"]
         self.depot.isru_power_closure = p_eval["power_closes"]
         self.depot.isru_thermal_closure = thermal_eval["thermal_closure"]
         self.depot.isru_thermal_margin_compliance = thermal_eval["thermal_margin_compliance"]
 
-        if not (self.depot.isru_power_closure and self.depot.isru_thermal_closure):
+        if not (self.depot.isru_power_closure and self.depot.isru_thermal_closure and self.depot.isru_thermal_margin_compliance):
             self.depot.isru_operational = False
             return self.depot.to_dict()
 
@@ -263,7 +273,8 @@ class MissionDigitalTwin:
             available_power_mwe=available_power_mwe,
             operating_days=duration_days
         )
-        gross_lh2_produced_mt = min(achievable_eval["achievable_gross_lh2_mt"], required_gross_lh2_mt) if achievable_eval["production_closes"] else achievable_eval["achievable_gross_lh2_mt"]
+        # Continuous physical production without artificial clamping
+        gross_lh2_produced_mt = achievable_eval["achievable_gross_lh2_mt"]
 
         storage_boiloff_mt = acct["loss_breakdown_mt"]["storage_boiloff_mt"]
         stored_lh2_mt = max(0.0, gross_lh2_produced_mt - storage_boiloff_mt)
@@ -598,17 +609,18 @@ class MissionDigitalTwin:
             "isru_operational": self.depot.isru_operational,
             "isru_production_complete": self.depot.production_complete,
             "depot_verified": self.depot.depot_verified,
-            "verified_depot_inventory_sufficient": self.depot.lh2_initial_stored_mt >= REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT - 1e-2,
-            "surface_average_power_closure": self.depot.isru_power_closure,
-            "surface_peak_power_closure": self.depot.isru_power_closure,
+            "verified_depot_inventory_sufficient": self.depot.lh2_initial_stored_mt >= self.depot.required_gross_depot_withdrawal_mt - 1e-6,
+            "surface_average_power_closure": self.depot.isru_average_power_closure,
+            "surface_peak_power_closure": self.depot.isru_peak_power_closure,
             "surface_thermal_closure": self.depot.isru_thermal_closure,
+            "surface_thermal_margin_compliance": self.depot.isru_thermal_margin_compliance,
             "earth_departure_authorized": self.depot.state == PrecursorDepotState.CREW_DEPARTURE_AUTHORIZED,
             "earth_departure_achieved": p_earth_dep,
             "mars_encounter_achieved": p_mars_enc,
             "mars_operations_complete": p_mars_stay,
-            "return_propellant_available": self.depot.lh2_initial_stored_mt >= REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT - 1e-2,
-            "return_propellant_transfer_complete": self.depot.lh2_transferred_to_ship_mt >= REQUIRED_NET_RETURN_LH2_MT - 1e-2,
-            "return_propellant_loaded": self.depot.actual_net_propellant_loaded_mt >= REQUIRED_NET_RETURN_LH2_MT - 1e-2,
+            "return_propellant_available": self.depot.lh2_initial_stored_mt >= self.depot.required_gross_depot_withdrawal_mt - 1e-6,
+            "return_propellant_transfer_complete": self.depot.lh2_transferred_to_ship_mt >= REQUIRED_NET_RETURN_LH2_MT - 1e-6,
+            "return_propellant_loaded": self.depot.actual_net_propellant_loaded_mt >= REQUIRED_NET_RETURN_LH2_MT - 1e-6,
             "return_trajectory_closes": p_tei,
             "earth_capture_achieved": p_earth_cap,
             "propellant_reserve_sufficient": (self.state.lh2_mt >= -1e-4 and self.state.lnh3_mt >= -1e-4),

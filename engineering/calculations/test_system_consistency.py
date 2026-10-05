@@ -458,30 +458,47 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertFalse(achievable["production_closes"])
         self.assertLess(achievable["achievable_gross_lh2_mt"], achievable["required_gross_lh2_mt"])
 
-    # --- PHASE 8.3 HOSTILE ADVERSARIAL VALIDATION TEST SUITE ---
+    # --- PHASE 8.3 & PHASE 8.4 ADVERSARIAL VALIDATION TEST SUITE ---
 
-    def test_phase8_3_thermal_engineering_margins(self):
-        """Phase 8.3 Test: Verify distinction between thermal mathematical closure, 15% engineering margin compliance, and thermal failure."""
+    def test_phase8_4_thermal_engineering_margins(self):
+        """Phase 8.4 Test: Authoritative thermal engineering margin compliance and fixed capacity deficit testing."""
         model = MarsISRUModel()
 
-        # Baseline: capacity equals waste heat load (~74.96 MWth)
-        t_base = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=19.57, required_thermal_margin_fraction=0.15)
-        self.assertTrue(t_base["thermal_mathematical_closure"])
-        self.assertFalse(t_base["thermal_margin_compliance"])
-        self.assertFalse(t_base["thermal_failure"])
-        self.assertEqual(t_base["thermal_margin_status"], "ZERO_MARGIN_MATHEMATICAL_CLOSURE")
+        # Case A: Nominal required 15% margin mode -> COMPLIANT
+        t_nominal = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=17.58, required_thermal_margin_fraction=0.15)
+        self.assertTrue(t_nominal["thermal_mathematical_closure"])
+        self.assertTrue(t_nominal["thermal_margin_compliance"])
+        self.assertFalse(t_nominal["thermal_failure"])
+        self.assertEqual(t_nominal["thermal_margin_status"], "COMPLIANT")
 
-        # Zero required margin mode: baseline is compliant
-        t_zero_margin = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=19.57, required_thermal_margin_fraction=0.0)
-        self.assertTrue(t_zero_margin["thermal_mathematical_closure"])
-        self.assertTrue(t_zero_margin["thermal_margin_compliance"])
-        self.assertEqual(t_zero_margin["thermal_margin_status"], "COMPLIANT")
+        # Case B: Fixed radiator capacity set exactly equal to waste heat (56.0 MWth) with required margin=15%
+        # -> mathematical closure passes, but margin compliance fails!
+        t_zero_margin_cap = model.calculate_thermal_rejection_and_radiator(
+            avg_power_mwe=17.58,
+            required_thermal_margin_fraction=0.15,
+            fixed_radiator_capacity_mwth=56.0
+        )
+        self.assertTrue(t_zero_margin_cap["thermal_mathematical_closure"])
+        self.assertFalse(t_zero_margin_cap["thermal_margin_compliance"])
+        self.assertEqual(t_zero_margin_cap["thermal_margin_status"], "ZERO_MARGIN_MATHEMATICAL_CLOSURE")
 
-        # Explicit thermal deficit: waste heat > capacity
-        # Simulate higher continuous power demand (e.g. 22 MWe -> ~84.27 MWth waste heat)
-        t_deficit = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=22.0, required_thermal_margin_fraction=0.0)
-        # Manually verify boundary logic
-        self.assertGreater(t_deficit["total_q_waste_mwth"], t_base["radiator_capacity_mwth"])
+        # Case C: Genuine physical capacity deficit (fixed capacity 45 MWth < waste heat 55.96 MWth)
+        t_deficit = model.calculate_thermal_rejection_and_radiator(
+            avg_power_mwe=17.58,
+            required_thermal_margin_fraction=0.15,
+            fixed_radiator_capacity_mwth=45.0
+        )
+        self.assertFalse(t_deficit["thermal_mathematical_closure"])
+        self.assertFalse(t_deficit["thermal_margin_compliance"])
+        self.assertTrue(t_deficit["thermal_failure"])
+        self.assertEqual(t_deficit["thermal_margin_status"], "THERMAL_FAILURE")
+
+        # Case D: State-machine prerequisite enforcement — broken thermal margin compliance prevents crew departure
+        twin = MissionDigitalTwin()
+        precursor_res = twin.run_precursor_mission(fixed_radiator_capacity_mwth=56.0) # closure True, margin compliance False
+        self.assertFalse(twin.depot.isru_operational)
+        crewed_res = twin.run_crewed_mission()
+        self.assertEqual(crewed_res["status"], "CREW DEPARTURE ABORTED ON EARTH")
 
     def test_phase8_3_surface_power_average_vs_peak_boundaries(self):
         """Phase 8.3 Test: Independent boundary checks for average surface power vs peak surface power."""
