@@ -281,8 +281,14 @@ class MarsISRUModel:
             "total_surface_peak_mwe": res["required_peak_power_mwe"]
         }
 
-    def calculate_thermal_rejection_and_radiator(self, avg_power_mwe):
-        """Calculates waste heat generation and sizes Mars surface radiators."""
+    def calculate_thermal_rejection_and_radiator(self, avg_power_mwe, required_thermal_margin_fraction=0.15):
+        """Calculates waste heat generation and sizes Mars surface radiators.
+
+        Explicitly distinguishes:
+        1. Mathematical Closure: radiator_capacity >= total_q_waste
+        2. Engineering Margin Compliance: radiator_capacity >= total_q_waste * (1 + required_thermal_margin_fraction)
+        3. Thermal Failure: radiator_capacity < total_q_waste
+        """
         p_elec_mwe = avg_power_mwe
 
         eta_reactor_thermal = 0.30
@@ -315,7 +321,19 @@ class MarsISRUModel:
         q_rejection_isru_mwth = (area_isru_rad_m2 * q_rad_isru_w) / 1e6
         total_radiator_capacity_mwth = q_rejection_reactor_mwth + q_rejection_isru_mwth
 
-        thermal_closure = (total_radiator_capacity_mwth >= total_q_waste_mw - 1e-4)
+        thermal_margin_mwth = total_radiator_capacity_mwth - total_q_waste_mw
+        required_capacity_mwth = total_q_waste_mw * (1.0 + required_thermal_margin_fraction)
+
+        thermal_mathematical_closure = (total_radiator_capacity_mwth >= total_q_waste_mw - 1e-4)
+        thermal_margin_compliance = (total_radiator_capacity_mwth >= required_capacity_mwth - 1e-4)
+        thermal_failure = (total_radiator_capacity_mwth < total_q_waste_mw - 1e-4)
+
+        if thermal_margin_compliance:
+            status_str = "COMPLIANT"
+        elif thermal_mathematical_closure:
+            status_str = "ZERO_MARGIN_MATHEMATICAL_CLOSURE"
+        else:
+            status_str = "THERMAL_FAILURE"
 
         return {
             "reactor_thermal_output_mwth": round(q_reactor_th_mw, 2),
@@ -323,8 +341,15 @@ class MarsISRUModel:
             "isru_plant_waste_heat_mwth": round(q_isru_waste_mw, 2),
             "total_q_waste_mwth": round(total_q_waste_mw, 2),
             "radiator_capacity_mwth": round(total_radiator_capacity_mwth, 2),
-            "thermal_margin_mwth": round(total_radiator_capacity_mwth - total_q_waste_mw, 2),
-            "thermal_closure": thermal_closure,
+            "required_capacity_mwth": round(required_capacity_mwth, 2),
+            "thermal_margin_mwth": round(thermal_margin_mwth, 2),
+            "required_thermal_margin_fraction": required_thermal_margin_fraction,
+            "thermal_closure": thermal_mathematical_closure,
+            "thermal_mathematical_closure": thermal_mathematical_closure,
+            "thermal_margin_compliance": thermal_margin_compliance,
+            "thermal_failure": thermal_failure,
+            "thermal_margin_status": status_str,
+            "provenance": "PROVISIONAL (15% lifecycle degradation margin specified in Doc 49/51; zero-margin baseline preserved mathematically)",
             "radiator_area_m2": {
                 "high_temp_reactor_rad_m2": round(area_reactor_rad_m2, 1),
                 "low_temp_isru_rad_m2": round(area_isru_rad_m2, 1),
