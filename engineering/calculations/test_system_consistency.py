@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
 Automated System Consistency & Sequential Digital Twin Test Suite for Project Occam-7
-Updated for Program Phase 8.1 — Codex P1/P2 Defect Remediation & Mission Integrity.
+Updated for Program Phase 8.5 — Radiation Protection Hostile Audit & Dynamic Shielding Physics.
 
 Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests,
 thermal/power state machines, launch logistics, centrifuge dynamics, mass conservation, vector kinematics,
 numerical vs analytical rocket equation agreement, cryogenic boiloff, crew health models,
 Mars ISRU water/hydrogen conservation, electrolysis thermodynamics, liquefaction power,
 radiator thermal closure, surface timeline closure, machine-readable mission success predicates,
-and Phase 8.1 explicit precursor/crewed safety gates & negative failure tests (Tests A through G).
+Phase 8.1 explicit precursor/crewed safety gates & negative failure tests (Tests A through G),
+Phase 8.2–8.4 hostile surface power/thermal/payload margin & state-machine prerequisite tests,
+and Phase 8.5 hostile radiation shielding & propellant depletion tests.
 """
 
 import math
@@ -17,7 +19,14 @@ import unittest
 
 from mass_budget import calculate_mass_budget
 from centrifuge_calculator import analyze_centrifuge
-from shielding_estimator import shielding_calculator
+from shielding_estimator import (
+    shielding_calculator,
+    calculate_axial_propellant_column_density,
+    calculate_directional_solid_angles,
+    compute_dynamic_dose_rate,
+    calculate_gcr_dose_rate,
+    calculate_reactor_dose_rate,
+)
 from radiator_sizing import calculate_radiator_area
 from mission_digital_twin import MissionDigitalTwin, SpacecraftState, PrecursorDepotState
 from earth_mars_transfer import EarthMarsTransferSolver, MU_SUN, MU_EARTH, MU_MARS, R_EARTH_ORBIT, R_MARS_ORBIT
@@ -259,7 +268,6 @@ class TestSystemConsistency(unittest.TestCase):
     def test_a_zero_precursor_inventory_fails_departure(self):
         """Test A: Zero precursor inventory must fail crew departure."""
         twin = MissionDigitalTwin()
-        # Do not run precursor mission -> zero inventory
         res = twin.run_crewed_mission()
         self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
         self.assertFalse(res["gate_status"]["required_LH2_available"])
@@ -294,11 +302,9 @@ class TestSystemConsistency(unittest.TestCase):
     def test_e_crewed_mission_cannot_create_precursor_inventory(self):
         """Test E: Crewed mission cannot create precursor inventory."""
         twin = MissionDigitalTwin()
-        # Uninitialized precursor depot
         self.assertEqual(twin.depot.lh2_produced_mt, 0.0)
         res = twin.run_crewed_mission()
         self.assertEqual(res["status"], "CREW DEPARTURE ABORTED ON EARTH")
-        # Ensure crewed mission execution attempt did not magically manufacture propellant
         self.assertEqual(twin.depot.lh2_produced_mt, 0.0)
 
     def test_f_running_precursor_separately_and_passing_state_permits_departure(self):
@@ -319,11 +325,9 @@ class TestSystemConsistency(unittest.TestCase):
         twin = MissionDigitalTwin()
         twin.run_precursor_mission()
 
-        # Mission 1 consumes return propellant
         res_m1 = twin.run_crewed_mission()
         self.assertTrue(res_m1["success_predicate_assessment"]["mission_success"])
 
-        # Attempt Mission 2 without manufacturing new propellant
         twin_m2 = MissionDigitalTwin()
         twin_m2.depot = twin.depot # Pass depleted depot
 
@@ -334,21 +338,21 @@ class TestSystemConsistency(unittest.TestCase):
     def test_negative_lander_capacity_failure(self):
         """Negative Test: Lander capacity < ISRU dry mass must fail precursor payload gate."""
         model = MarsISRUModel()
-        gate = model.precursor_payload_closes(number_of_landers=1, capacity_per_lander_mt=150.0) # 150t capacity vs ~256t plant
+        gate = model.precursor_payload_closes(number_of_landers=1, capacity_per_lander_mt=150.0)
         self.assertFalse(gate["payload_closes"])
         self.assertLess(gate["mass_margin_mt"], 0.0)
 
     def test_negative_power_budget_insufficient(self):
         """Negative Test: Surface nuclear power < required surface power must fail power gate."""
         model = MarsISRUModel()
-        power_eval = model.surface_power_budget(available_power_mwe=18.0) # 18 MWe < ~20.63 MWe demand
+        power_eval = model.surface_power_budget(available_power_mwe=18.0)
         self.assertFalse(power_eval["power_closes"])
         self.assertLess(power_eval["power_margin_mwe"], 0.0)
 
     def test_negative_peak_power_insufficient(self):
         """Negative Test: Available power < required peak power must fail power gate."""
         model = MarsISRUModel()
-        power_eval = model.surface_power_budget(available_power_mwe=22.0) # 22 MWe < 24.42 MWe peak
+        power_eval = model.surface_power_budget(available_power_mwe=22.0)
         self.assertFalse(power_eval["power_closes"])
 
     def test_efficiency_parameterization_monotonicity(self):
@@ -387,19 +391,16 @@ class TestSystemConsistency(unittest.TestCase):
         twin = MissionDigitalTwin()
         twin.run_precursor_mission()
 
-        # Case 1: Depot has exactly 2,200.0 t (less than gross required ~2279.79 t) -> MUST FAIL DEPARTURE GATE
         twin.depot.lh2_verified_inventory_mt = 2200.0
         auth, gate = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertFalse(auth)
         self.assertFalse(gate["required_LH2_available"])
 
-        # Case 2: Depot has 1 kg below required gross withdrawal (~2279.78 t) -> MUST FAIL
-        gross_req = 2200.0 / (1.0 - 0.035)  # ~2279.7927 t
+        gross_req = 2200.0 / (1.0 - 0.035)
         twin.depot.lh2_verified_inventory_mt = gross_req - 0.001
         auth_sub, gate_sub = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertFalse(auth_sub)
 
-        # Case 3: Depot has exactly gross required quantity -> MUST PASS
         twin.depot.lh2_verified_inventory_mt = gross_req
         auth_pass, gate_pass = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertTrue(auth_pass)
@@ -419,19 +420,16 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.2 Test A-C: Aggregate capacity passes but individual lander fails."""
         model = MarsISRUModel()
 
-        # Test A: L1 capacity = 140t (vs 145t L1 payload), L2 capacity = 160t (vs 114.79t L2 payload). Total = 300t.
         gate_a = model.precursor_payload_closes(lander_1_capacity_mt=140.0, lander_2_capacity_mt=160.0)
         self.assertFalse(gate_a["payload_closes"])
         self.assertFalse(gate_a["lander_1"]["lander_closes"])
         self.assertTrue(gate_a["lander_2"]["lander_closes"])
 
-        # Test B: Both landers close individually (150t each)
         gate_b = model.precursor_payload_closes(lander_1_capacity_mt=150.0, lander_2_capacity_mt=150.0)
         self.assertTrue(gate_b["payload_closes"])
         self.assertTrue(gate_b["lander_1"]["lander_closes"])
         self.assertTrue(gate_b["lander_2"]["lander_closes"])
 
-        # Test C: One lander has negative margin (L1 capacity = 135t)
         gate_c = model.precursor_payload_closes(lander_1_capacity_mt=135.0, lander_2_capacity_mt=150.0)
         self.assertFalse(gate_c["payload_closes"])
         self.assertLess(gate_c["lander_1"]["payload_margin_mt"], 0.0)
@@ -440,19 +438,17 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.2 Test: Insufficient peak surface power or thermal capacity must fail closure."""
         model = MarsISRUModel()
 
-        # Peak power deficit
         p_eval = model.surface_power_budget(available_power_mwe=22.0)
         self.assertFalse(p_eval["power_closes"])
         self.assertFalse(p_eval["peak_power_closes"])
 
-        # Thermal rejection deficit
         p_info = model.calculate_electrolysis_and_liquefaction_power(2760.8)
         thermal = model.calculate_thermal_rejection_and_radiator(p_info["avg_continuous_power_mwe"])
         self.assertTrue(thermal["thermal_closure"])
 
     def test_hostile_isru_production_deficit(self):
         """Phase 8.2 Test: Shortened production timeline produces LH2 deficit and fails campaign."""
-        model = MarsISRUModel(production_days=200.0) # Shortened from 500 days to 200 days
+        model = MarsISRUModel(production_days=200.0)
         achievable = model.calculate_achievable_production(available_power_mwe=25.0, operating_days=200.0)
 
         self.assertFalse(achievable["production_closes"])
@@ -464,15 +460,12 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.4 Test: Authoritative thermal engineering margin compliance and fixed capacity deficit testing."""
         model = MarsISRUModel()
 
-        # Case A: Nominal required 15% margin mode -> COMPLIANT
         t_nominal = model.calculate_thermal_rejection_and_radiator(avg_power_mwe=17.58, required_thermal_margin_fraction=0.15)
         self.assertTrue(t_nominal["thermal_mathematical_closure"])
         self.assertTrue(t_nominal["thermal_margin_compliance"])
         self.assertFalse(t_nominal["thermal_failure"])
         self.assertEqual(t_nominal["thermal_margin_status"], "COMPLIANT")
 
-        # Case B: Fixed radiator capacity set exactly equal to waste heat (56.0 MWth) with required margin=15%
-        # -> mathematical closure passes, but margin compliance fails!
         t_zero_margin_cap = model.calculate_thermal_rejection_and_radiator(
             avg_power_mwe=17.58,
             required_thermal_margin_fraction=0.15,
@@ -482,7 +475,6 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertFalse(t_zero_margin_cap["thermal_margin_compliance"])
         self.assertEqual(t_zero_margin_cap["thermal_margin_status"], "ZERO_MARGIN_MATHEMATICAL_CLOSURE")
 
-        # Case C: Genuine physical capacity deficit (fixed capacity 45 MWth < waste heat 55.96 MWth)
         t_deficit = model.calculate_thermal_rejection_and_radiator(
             avg_power_mwe=17.58,
             required_thermal_margin_fraction=0.15,
@@ -493,9 +485,8 @@ class TestSystemConsistency(unittest.TestCase):
         self.assertTrue(t_deficit["thermal_failure"])
         self.assertEqual(t_deficit["thermal_margin_status"], "THERMAL_FAILURE")
 
-        # Case D: State-machine prerequisite enforcement — broken thermal margin compliance prevents crew departure
         twin = MissionDigitalTwin()
-        precursor_res = twin.run_precursor_mission(fixed_radiator_capacity_mwth=56.0) # closure True, margin compliance False
+        precursor_res = twin.run_precursor_mission(fixed_radiator_capacity_mwth=56.0)
         self.assertFalse(twin.depot.isru_operational)
         crewed_res = twin.run_crewed_mission()
         self.assertEqual(crewed_res["status"], "CREW DEPARTURE ABORTED ON EARTH")
@@ -504,19 +495,16 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.3 Test: Independent boundary checks for average surface power vs peak surface power."""
         model = MarsISRUModel()
 
-        # Case 1: Available power = 25.0 MWe -> Req Avg = 19.57 MWe, Req Peak = 23.17 MWe. Both pass.
         p1 = model.surface_power_budget(available_power_mwe=25.0)
         self.assertTrue(p1["average_power_closes"])
         self.assertTrue(p1["peak_power_closes"])
         self.assertTrue(p1["power_closes"])
 
-        # Case 2: Available power = 22.0 MWe -> Pass average (19.57 MWe), fail peak (23.17 MWe).
         p2 = model.surface_power_budget(available_power_mwe=22.0)
         self.assertTrue(p2["average_power_closes"])
         self.assertFalse(p2["peak_power_closes"])
-        self.assertFalse(p2["power_closes"])  # Overall power closes must be FALSE when peak fails!
+        self.assertFalse(p2["power_closes"])
 
-        # Case 3: Available power = 18.0 MWe -> Fail both average and peak.
         p3 = model.surface_power_budget(available_power_mwe=18.0)
         self.assertFalse(p3["average_power_closes"])
         self.assertFalse(p3["peak_power_closes"])
@@ -526,26 +514,21 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.3 Test: Adversarial boundary checks for independent lander capacities."""
         model = MarsISRUModel()
 
-        # Case 1: Lander 1 capacity 144.99 t vs assigned 145.0 t -> Lander 1 FAIL, Lander 2 PASS (150t capacity vs 114.79t payload)
         g1 = model.precursor_payload_closes(lander_1_capacity_mt=144.99, lander_2_capacity_mt=150.0)
         self.assertFalse(g1["payload_closes"])
         self.assertFalse(g1["lander_1"]["lander_closes"])
         self.assertTrue(g1["lander_2"]["lander_closes"])
 
-        # Case 2: Lander 2 capacity 114.78 t vs assigned 114.79 t -> Lander 1 PASS (150t capacity), Lander 2 FAIL
         g2 = model.precursor_payload_closes(lander_1_capacity_mt=150.0, lander_2_capacity_mt=114.78)
         self.assertFalse(g2["payload_closes"])
         self.assertTrue(g2["lander_1"]["lander_closes"])
         self.assertFalse(g2["lander_2"]["lander_closes"])
 
-        # Case 3: Both landers fail capacity
         g3 = model.precursor_payload_closes(lander_1_capacity_mt=140.0, lander_2_capacity_mt=110.0)
         self.assertFalse(g3["payload_closes"])
         self.assertFalse(g3["lander_1"]["lander_closes"])
         self.assertFalse(g3["lander_2"]["lander_closes"])
 
-        # Case 4: Asymmetric payload distribution with total capacity 300t (L1=120t, L2=180t)
-        # L1 payload = 145.0t > 120t (FAILS), L2 payload = 114.79t < 180t (PASSES). Overall = FAILS.
         g4 = model.precursor_payload_closes(lander_1_capacity_mt=120.0, lander_2_capacity_mt=180.0)
         self.assertFalse(g4["payload_closes"])
 
@@ -568,14 +551,12 @@ class TestSystemConsistency(unittest.TestCase):
             twin.run_precursor_mission()
             self.assertEqual(twin.depot.state, PrecursorDepotState.DEPOT_VERIFIED)
 
-            # Break ONLY this specific prerequisite
             setattr(twin.depot, depot_attr, break_val)
 
             auth, gate = twin.precursor_inventory_verified()
             self.assertFalse(auth, f"Crew departure was incorrectly authorized despite broken prerequisite: {gate_key}")
             self.assertFalse(gate[gate_key], f"Gate key {gate_key} did not reflect broken prerequisite {depot_attr}")
 
-            # Verify crewed mission attempt aborts on Earth
             crewed_res = twin.run_crewed_mission()
             self.assertEqual(crewed_res["status"], "CREW DEPARTURE ABORTED ON EARTH")
 
@@ -584,19 +565,16 @@ class TestSystemConsistency(unittest.TestCase):
         twin = MissionDigitalTwin()
         twin.run_precursor_mission()
 
-        gross_req = 2200.0 / (1.0 - 0.035)  # ~2279.792746 t
+        gross_req = 2200.0 / (1.0 - 0.035)
 
-        # Boundary Case 1: Depot has 2279.7927 t -> PASS
         twin.depot.lh2_verified_inventory_mt = gross_req
         auth1, gate1 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertTrue(auth1)
 
-        # Boundary Case 2: Depot has 2279.79 t (0.0027 t below exact gross required) -> FAIL
         twin.depot.lh2_verified_inventory_mt = 2279.79
         auth2, gate2 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertFalse(auth2)
 
-        # Boundary Case 3: Depot has 2200.0 t net (without transfer loss margin) -> FAIL
         twin.depot.lh2_verified_inventory_mt = 2200.0
         auth3, gate3 = twin.precursor_inventory_verified(required_net_lh2_mt=2200.0)
         self.assertFalse(auth3)
@@ -605,24 +583,22 @@ class TestSystemConsistency(unittest.TestCase):
         """Phase 8.3 Test: Adversarial tests verifying mass conservation enforcement assertions."""
         twin = MissionDigitalTwin()
 
-        # Intentional violation: M_initial != M_final + consumed - reloaded
         with self.assertRaises(AssertionError):
             twin.enforce_mass_conservation(
                 event_name="Adversarial Mass Creation Test",
                 m_initial=1000.0,
-                m_final=1050.0,  # 50 t mass created out of nowhere
+                m_final=1050.0,
                 prop_burned=0.0,
                 consumables_spent=0.0,
                 boiloff_lost=0.0,
                 isru_reloaded=0.0
             )
 
-        # Intentional violation: Mass disappears without tracking
         with self.assertRaises(AssertionError):
             twin.enforce_mass_conservation(
                 event_name="Adversarial Mass Loss Test",
                 m_initial=1000.0,
-                m_final=900.0,  # 100 t mass disappeared without accounting
+                m_final=900.0,
                 prop_burned=0.0,
                 consumables_spent=0.0,
                 boiloff_lost=0.0,
@@ -645,6 +621,51 @@ class TestSystemConsistency(unittest.TestCase):
 
         self.assertAlmostEqual(ci_lower, 97.60, places=1)
         self.assertAlmostEqual(ci_upper, 98.16, places=1)
+
+    # --- PHASE 8.5 HOSTILE RADIATION SHIELDING & PROPELLANT DEPLETION TEST SUITE ---
+
+    def test_depleted_propellant_axial_column_density_zero(self):
+        """Phase 8.5 Test: Verify full tanks yield >1,000 g/cm^2 axial column density, while empty tanks yield exactly 0.0 g/cm^2."""
+        col_full = calculate_axial_propellant_column_density(lh2_mt=2200.0, lnh3_mt=300.0)
+        col_empty = calculate_axial_propellant_column_density(lh2_mt=0.0, lnh3_mt=0.0)
+
+        self.assertGreater(col_full, 1000.0)
+        self.assertEqual(col_empty, 0.0)
+
+    def test_directional_solid_angle_radial_gcr_dominance(self):
+        """Phase 8.5 Test: Verify radial sky covers >98% of 4pi space and axial propellant tanks cover <1.5%."""
+        angles = calculate_directional_solid_angles(tank_radius_m=6.0, tank_distance_m=35.0)
+
+        self.assertGreater(angles["frac_radial"], 0.98)
+        self.assertLess(angles["frac_axial"], 0.02)
+        self.assertAlmostEqual(angles["frac_radial"] + angles["frac_axial"], 1.0, places=6)
+
+    def test_spe_event_storm_shelter_attenuation(self):
+        """Phase 8.5 Test: Verify SPE flare dose inside SPE storm shelter core (<5 cSv) vs outside shelter (>30 cSv)."""
+        dose_inside = compute_dynamic_dose_rate(lh2_mt=0.0, lnh3_mt=0.0, reactor_power_mwth=0.0, in_storm_shelter=True, spe_event=True)
+        dose_outside = compute_dynamic_dose_rate(lh2_mt=0.0, lnh3_mt=0.0, reactor_power_mwth=0.0, in_storm_shelter=False, spe_event=True)
+
+        self.assertLess(dose_inside["spe_event_dose_csv"], 5.0)
+        self.assertGreater(dose_outside["spe_event_dose_csv"], 30.0)
+
+    def test_dynamic_dose_rate_varies_with_reactor_power_and_depletion(self):
+        """Phase 8.5 Test: Verify dose rate changes dynamically with reactor power and propellant depletion."""
+        dose_full_rx_full_prop = compute_dynamic_dose_rate(lh2_mt=2200.0, lnh3_mt=300.0, reactor_power_mwth=100.0)
+        dose_full_rx_empty_prop = compute_dynamic_dose_rate(lh2_mt=0.0, lnh3_mt=0.0, reactor_power_mwth=100.0)
+        dose_low_rx_empty_prop = compute_dynamic_dose_rate(lh2_mt=0.0, lnh3_mt=0.0, reactor_power_mwth=10.0)
+
+        self.assertGreater(dose_full_rx_empty_prop["rx_rate_csv_day"], dose_full_rx_full_prop["rx_rate_csv_day"])
+        self.assertAlmostEqual(dose_low_rx_empty_prop["rx_rate_csv_day"] * 10.0, dose_full_rx_empty_prop["rx_rate_csv_day"], delta=0.05)
+
+    def test_unclosed_radial_shielding_fails_crew_survivability(self):
+        """Phase 8.5 Test: Removing radial habitat shielding (sigma_radial -> 0) causes GCR dose rate to spike and fail crew survivability."""
+        gcr_unshielded = calculate_gcr_dose_rate(sigma_radial_g_cm2=0.0, sigma_axial_g_cm2=0.0)
+        gcr_shielded = calculate_gcr_dose_rate(sigma_radial_g_cm2=31.4, sigma_axial_g_cm2=0.0)
+
+        self.assertGreater(gcr_unshielded, gcr_shielded * 1.8)
+
+        accumulated_unshielded = gcr_unshielded * 850.0
+        self.assertGreater(accumulated_unshielded, 100.0)
 
 
 if __name__ == "__main__":

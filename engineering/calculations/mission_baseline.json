@@ -48,7 +48,8 @@
       "thrust_kn": 4000.0,
       "actual_dv_kms": 3.8,
       "numerical_dv_kms": 3.8,
-      "lh2_remaining_mt": 810.77
+      "lh2_remaining_mt": 810.77,
+      "accumulated_radiation_csv": 0.0
     },
     {
       "phase": "Outbound Cruise NEP (180d)",
@@ -60,7 +61,8 @@
       "end_mass_mt": 2309.72,
       "thrust_n": 568.13,
       "actual_dv_kms": 3.605,
-      "lnh3_remaining_mt": 42.58
+      "lnh3_remaining_mt": 42.58,
+      "accumulated_radiation_csv": 54.75
     },
     {
       "phase": "Mars Orbit Insertion (MOI)",
@@ -72,7 +74,8 @@
       "thrust_kn": 4000.0,
       "actual_dv_kms": 2.1,
       "numerical_dv_kms": 2.1,
-      "lh2_remaining_mt": 307.11
+      "lh2_remaining_mt": 307.11,
+      "accumulated_radiation_csv": 54.75
     },
     {
       "phase": "Mars Propellant Transfer & Operations (640d)",
@@ -84,7 +87,7 @@
       "lh2_reloaded_mt": 2200.0,
       "gross_mass_mt": 3813.92,
       "crew_health_percent": 100.0,
-      "accumulated_radiation_csv": 31.8
+      "accumulated_radiation_csv": 72.67
     },
     {
       "phase": "Trans-Earth Injection (TEI)",
@@ -96,7 +99,8 @@
       "thrust_kn": 4000.0,
       "actual_dv_kms": 1.8,
       "numerical_dv_kms": 1.8,
-      "lh2_remaining_mt": 1643.02
+      "lh2_remaining_mt": 1643.02,
+      "accumulated_radiation_csv": 72.67
     },
     {
       "phase": "Inbound Cruise NEP (180d)",
@@ -108,7 +112,8 @@
       "end_mass_mt": 3062.81,
       "thrust_n": 568.13,
       "actual_dv_kms": 0.473,
-      "lnh3_remaining_mt": 0.0
+      "lnh3_remaining_mt": 0.0,
+      "accumulated_radiation_csv": 75.52
     },
     {
       "phase": "Earth Orbit Capture (EOI)",
@@ -120,7 +125,8 @@
       "thrust_kn": 4000.0,
       "actual_dv_kms": 6.755,
       "numerical_dv_kms": 6.754,
-      "lh2_remaining_mt": 0.0
+      "lh2_remaining_mt": 0.0,
+      "accumulated_radiation_csv": 75.53
     }
   ],
   "final_state": {
@@ -147,7 +153,7 @@
     "radiator_capacity_mwth": 133.35,
     "crew_count": 24,
     "crew_health_percent": 100.0,
-    "accumulated_radiation_csv": 33.88
+    "accumulated_radiation_csv": 75.53
   },
   "success_predicate_assessment": {
     "mission_success": true,

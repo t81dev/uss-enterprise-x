@@ -2,15 +2,15 @@
 
 **Document ID:** `58-crew-survivability-model-v1.md`
 **Digital Twin Source:** `engineering/calculations/mission_digital_twin.py`
-**Program Status:** Quantitative Crew Health & Life-Support Verification Complete
+**Program Status:** Quantitative Crew Health, Dynamic Radiation & Life-Support Verification Complete
 
 ---
 
 ## 1. Executive Summary
 
-`58-crew-survivability-model-v1.md` details the quantitative crew survivability, environmental control, radiation protection, and artificial gravity model for the 24-person crew of the USS Enterprise X across its 850-day mission.
+`58-crew-survivability-model-v1.md` details the quantitative crew survivability, environmental control, dynamic directional radiation protection, and artificial gravity model for the 24-person crew of the USS Enterprise X across its 850-day mission.
 
-Rather than assuming crew health remains an static $100\%$, this model tracks crew health as a dynamic state variable dependent on Solar Particle Event (SPE) radiation storms, Galactic Cosmic Ray (GCR) background doses, ECLSS consumable balances, habitat atmospheric pressure, thermal comfort, centrifuge microgravity decay, and centrifuge hardware reliability.
+Rather than assuming crew health remains a static $100\%$ or assuming static scalar radiation dose rates, this model tracks crew health as a dynamic state variable dependent on time-dependent propellant tank depletion, $4\pi$ directional solid angles, Solar Particle Event (SPE) radiation storms, Galactic Cosmic Ray (GCR) background doses, reactor scatter flux, ECLSS consumable balances, habitat atmospheric pressure, thermal comfort, centrifuge microgravity decay, and centrifuge hardware reliability.
 
 ---
 
@@ -21,28 +21,33 @@ Crew Health $H_{crew}(t)$ is integrated as:
 $$H_{crew}(t) = 100.0\% - \int_{0}^{t} \left( \dot{D}_{rad}(\tau) \cdot k_{rad} + \dot{L}_{ECLSS}(\tau) \cdot k_{ECLSS} + \dot{S}_{grav}(\tau) \cdot k_{grav} \right) d\tau$$
 
 Where:
-* $\dot{D}_{rad}$: Accumulated equivalent radiation dose rate ($\text{cSv/day}$).
+* $\dot{D}_{rad}$: Accumulated equivalent radiation dose rate ($\text{cSv/day}$), computed dynamically via `compute_dynamic_dose_rate()`.
 * $\dot{L}_{ECLSS}$: ECLSS atmospheric / consumable deficiency factor.
 * $\dot{S}_{grav}$: Physiological deconditioning rate due to zero-gravity / centrifuge failure ($0.05\%/\text{day}$ without artificial gravity).
 
 ---
 
-## 3. Radiation Exposure & Storm Shelter Protection
+## 3. Directional Radiation Protection & Dynamic Depletion Model
 
 ### A. Deep-Space Radiation Environment Baseline:
-* **Unshielded GCR Background Rate:** $\approx 1.5 - 2.0\text{ mSv/day}$ ($0.15 - 0.20\text{ cSv/day}$).
+* **Unshielded GCR Background Rate:** $\approx 1.8\text{ mSv/day}$ ($0.18\text{ cSv/day}$).
 * **Unshielded SPE Solar Flare Peak Rate:** Up to $10 - 50\text{ Sv/event}$ ($1,000 - 5,000\text{ cSv/event}$).
 
-### B. Radiation Shielding Mass & Attenuation:
-* **Circumferential Ambient Water Shielding:** $20.0\text{ g/cm}^2$ areal mass density ($200\text{ t}$ water buffer tanks surrounding crew quarters). Reductive factor for GCR = $0.35$.
-* **Central SPE Storm Shelter Stack:** $52.25\text{ g/cm}^2$ column density ($4\text{m} \times 10\text{m}$ inner cylinder constructed of Steel + Water + High-Density Polyethylene + Steel). Reductive factor for SPE protons = $0.015$ ($98.5\%$ attenuation).
+### B. Directional Solid Angle Weighting & Shielding Mass:
+* **Radial/Circumferential Habitat Shielding:** $20.0\text{ g/cm}^2$ water buffer tanks $+ 6.4\text{ g/cm}^2$ 316L SS pressure hull $+ 5.0\text{ g/cm}^2$ internal racks ($31.4\text{ g/cm}^2$ total ambient). Covers $99.28\%$ of $4\pi$ sky ($\Omega_{radial} = 12.48\text{ sr}$).
+* **Central SPE Storm Shelter Stack:** $52.25\text{ g/cm}^2$ column density ($4\text{m} \times 10\text{m}$ inner cylinder constructed of Steel + Water + High-Density Polyethylene + Steel). Attenuates SPE protons by $>98.5\%$ ($0.015$ factor).
+* **Axial Propellant Tank Buffer:** Subtends $\Omega_{axial} = 0.090\text{ sr}$ ($0.72\%$ of $4\pi$ sky). Provides dynamic axial reactor secondary attenuation when propellant is present ($\sigma_{axial} = 1,988\text{ g/cm}^2 \to 0\text{ g/cm}^2$).
 
-### C. Mission Accumulated Crew Dose Results:
-* **Outbound Transit (180 days @ $0.07\text{ cSv/d}$):** $12.60\text{ cSv}$.
-* **Mars Orbit / Surface Stay (640 days @ $0.03\text{ cSv/d}$):** $19.20\text{ cSv}$.
-* **Inbound Transit (30 days @ $0.07\text{ cSv/d}$):** $2.08\text{ cSv}$.
-* **Total Baseline Mission Dose:** **$33.88\text{ cSv}$ ($0.339\text{ Sv}$)**.
-* **NASA Career Limit Standard ($1,000\text{ mSv} = 100\text{ cSv}$):** Margin = $+66.12\text{ cSv}$ below career radiation safety ceiling.
+### C. Mission Accumulated Crew Dose Results (Digital Twin Reconciled):
+* **Trans-Mars Injection (TMI Burn):** $0.00\text{ cSv}$ (acute duration).
+* **Outbound Transit NEP (180 days @ $0.041\text{ cSv/d}$ + 1 SPE Flare):** $54.75\text{ cSv}$.
+* **Mars Orbit Insertion (MOI Burn):** $0.00\text{ cSv}$ (acute duration).
+* **Mars Orbit / Surface Stay (640 days @ $0.028\text{ cSv/d}$ + 1 SPE Flare in Shelter):** $17.92\text{ cSv}$.
+* **Trans-Earth Injection (TEI Burn):** $0.00\text{ cSv}$ (acute duration).
+* **Inbound Transit NEP (29.8 days @ $0.039\text{ cSv/d}$):** $2.85\text{ cSv}$.
+* **Earth Capture EOI Burn:** $0.01\text{ cSv}$ (acute duration).
+* **Total Baseline Mission Accumulated Dose:** **$75.53\text{ cSv}$ ($0.755\text{ Sv}$)**.
+* **NASA Career Limit Standard ($1,000\text{ mSv} = 100\text{ cSv}$):** Safety Margin = $+24.47\text{ cSv}$ ($24.47\%$) below career radiation safety ceiling.
 
 ---
 
