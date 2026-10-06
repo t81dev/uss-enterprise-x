@@ -33,6 +33,7 @@ F_FLASH = 0.015                      # Flash evaporation during tank filling (1.
 F_RESIDUALS = 0.010                  # Unusable trapped tank residuals (1.0%)
 F_TOTAL_TRANSFER_LOSS = F_CHILLDOWN + F_FLASH + F_RESIDUALS  # Total transfer loss fraction (3.5%)
 REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT = REQUIRED_NET_RETURN_LH2_MT / (1.0 - F_TOTAL_TRANSFER_LOSS)  # ~2279.79 t
+REQUIRED_THERMAL_MARGIN_FRACTION = 0.15 # Authoritative thermal engineering margin fraction (15%)
 
 # Molar Masses (g/mol)
 MOLAR_MASS_H2 = 2.01588
@@ -281,7 +282,7 @@ class MarsISRUModel:
             "total_surface_peak_mwe": res["required_peak_power_mwe"]
         }
 
-    def calculate_thermal_rejection_and_radiator(self, avg_power_mwe, required_thermal_margin_fraction=0.15):
+    def calculate_thermal_rejection_and_radiator(self, avg_power_mwe, required_thermal_margin_fraction=REQUIRED_THERMAL_MARGIN_FRACTION, fixed_radiator_capacity_mwth=None):
         """Calculates waste heat generation and sizes Mars surface radiators.
 
         Explicitly distinguishes:
@@ -305,21 +306,24 @@ class MarsISRUModel:
 
         q_rad_reactor_w = (eff_emiss * STEFAN_BOLTZMANN * (t_rad_reactor_k**4 - T_MARS_SURFACE_MAX_K**4) +
                            H_CONVECTION_MARS * (t_rad_reactor_k - T_MARS_SURFACE_MAX_K))
-        area_reactor_rad_m2 = (q_reactor_waste_mw * 1e6) / q_rad_reactor_w
+        area_reactor_rad_m2 = (q_reactor_waste_mw * 1e6 * (1.0 + required_thermal_margin_fraction)) / q_rad_reactor_w
 
         t_rad_isru_k = 350.0
         q_rad_isru_w = (eff_emiss * STEFAN_BOLTZMANN * (t_rad_isru_k**4 - T_MARS_SURFACE_MAX_K**4) +
                         H_CONVECTION_MARS * (t_rad_isru_k - T_MARS_SURFACE_MAX_K))
-        area_isru_rad_m2 = (q_isru_waste_mw * 1e6) / q_rad_isru_w
+        area_isru_rad_m2 = (q_isru_waste_mw * 1e6 * (1.0 + required_thermal_margin_fraction)) / q_rad_isru_w
 
         total_radiator_area_m2 = area_reactor_rad_m2 + area_isru_rad_m2
         specific_radiator_mass_kg_m2 = 4.5
         radiator_mass_mt = (total_radiator_area_m2 * specific_radiator_mass_kg_m2) / 1000.0
 
         # Physical heat rejection capacity verification
-        q_rejection_reactor_mwth = (area_reactor_rad_m2 * q_rad_reactor_w) / 1e6
-        q_rejection_isru_mwth = (area_isru_rad_m2 * q_rad_isru_w) / 1e6
-        total_radiator_capacity_mwth = q_rejection_reactor_mwth + q_rejection_isru_mwth
+        if fixed_radiator_capacity_mwth is not None:
+            total_radiator_capacity_mwth = float(fixed_radiator_capacity_mwth)
+        else:
+            q_rejection_reactor_mwth = (area_reactor_rad_m2 * q_rad_reactor_w) / 1e6
+            q_rejection_isru_mwth = (area_isru_rad_m2 * q_rad_isru_w) / 1e6
+            total_radiator_capacity_mwth = q_rejection_reactor_mwth + q_rejection_isru_mwth
 
         thermal_margin_mwth = total_radiator_capacity_mwth - total_q_waste_mw
         required_capacity_mwth = total_q_waste_mw * (1.0 + required_thermal_margin_fraction)
@@ -458,9 +462,14 @@ class MarsISRUModel:
         - Spare Parts & Tooling: 6.00 t
         - Unallocated Contingency Reserve (20%): 25.52 t
         """
+        # Primary radiator allocation to Lander 1 is up to 108.17 t (nominal design capacity).
+        # Modular radiator expansion above 108.17 t overflows to Lander 2.
+        lander_1_radiator_mt = min(radiator_mass_mt, 108.17)
+        lander_2_overflow_radiator_mt = max(0.0, radiator_mass_mt - lander_1_radiator_mt)
+
         lander_1_items = {
             "Surface Nuclear Reactor & sCO2 Brayton": 28.50,
-            "Thermal Radiator Array": radiator_mass_mt,
+            "Thermal Radiator Array": lander_1_radiator_mt,
             "Power Distribution & Conditioning": 3.50,
             "Structural Frame & Thermal Controls (L1)": 4.83
         }
@@ -482,6 +491,8 @@ class MarsISRUModel:
             "Spare Parts & Tooling": 6.00,
             "Unallocated Contingency Reserve (20%)": 25.52
         }
+        if lander_2_overflow_radiator_mt > 0.0:
+            lander_2_items["Modular Radiator Expansion Array (L2 Overflow)"] = lander_2_overflow_radiator_mt
 
         lander_1_payload_mt = sum(lander_1_items.values())
         lander_2_payload_mt = sum(lander_2_items.values())

@@ -25,88 +25,136 @@ from mars_isru import MarsISRUModel, REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT, REQUIRE
 # Parameter Provenance Classification Metadata
 PARAMETER_PROVENANCE = {
     "dry_mass_mt": {
+        "parameter": "dry_mass_mt",
+        "nominal_value": 1470.96,
         "classification": "SPECIFIED",
         "uncertainty_type": "Epistemic",
         "description": "Baseline unmargined dry mass subtotal (1,225.80 t) with 20% AIAA reserve margin -> 1,470.96 t dry baseline.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 1470.96, "std_dev": 73.548}
+        "parameters": {"mean": 1470.96, "std_dev": 73.548},
+        "source": "68-system-reference-model-v5.md",
+        "rationale": "AIAA S-120A dry mass contingency growth standard assumption (±5% sigma)."
     },
     "lh2_mass_mt": {
+        "parameter": "lh2_mass_mt",
+        "nominal_value": 2200.0,
         "classification": "SPECIFIED",
         "uncertainty_type": "Epistemic",
         "description": "Initial spacecraft LH2 propellant load at Earth departure.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 2200.0, "std_dev": 66.0}
+        "parameters": {"mean": 2200.0, "std_dev": 66.0},
+        "source": "68-system-reference-model-v5.md",
+        "rationale": "Specified tank capacity and departure loading budget (±3% sigma)."
     },
     "lnh3_mass_mt": {
+        "parameter": "lnh3_mass_mt",
+        "nominal_value": 300.0,
         "classification": "SPECIFIED",
         "uncertainty_type": "Epistemic",
         "description": "Initial spacecraft LNH3 propellant load at Earth departure.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 300.0, "std_dev": 9.0}
+        "parameters": {"mean": 300.0, "std_dev": 9.0},
+        "source": "68-system-reference-model-v5.md",
+        "rationale": "Specified secondary propellant tank loading budget (±3% sigma)."
     },
     "nep_efficiency": {
+        "parameter": "nep_efficiency",
+        "nominal_value": 0.65,
         "classification": "MODELED",
         "uncertainty_type": "Aleatory/Epistemic",
         "description": "Magnetoplasmadynamic (MPD) thruster electrical-to-jet power efficiency.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.58, "max": 0.72}
+        "parameters": {"min": 0.58, "max": 0.72},
+        "source": "03-propulsion.md",
+        "rationale": "Theoretical plasma acceleration thruster efficiency range based on laboratory MPD models."
     },
     "ice_concentration": {
+        "parameter": "ice_concentration",
+        "nominal_value": 0.50,
         "classification": "MEASURED",
         "uncertainty_type": "Epistemic",
         "description": "Glacial ice mass fraction in Martian regolith at landing site.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.35, "max": 0.65}
+        "parameters": {"min": 0.35, "max": 0.65},
+        "source": "Arcadia Planitia subsurface radar soundings (62-mars-isru-closure-v1.md)",
+        "rationale": "Empirical orbital radar reflection data for mid-latitude glacial sheet ice."
     },
     "soec_efficiency": {
+        "parameter": "soec_efficiency",
+        "nominal_value": 0.72,
         "classification": "PROVISIONAL",
         "uncertainty_type": "Epistemic",
         "description": "Solid Oxide Electrolyzer Cell high-temperature stack efficiency.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.60, "max": 0.80}
+        "parameters": {"min": 0.60, "max": 0.80},
+        "source": "62-mars-isru-closure-v1.md",
+        "rationale": "Provisional laboratory performance range requiring full spaceflight qualification."
     },
     "liquefaction_efficiency": {
+        "parameter": "liquefaction_efficiency",
+        "nominal_value": 0.25,
         "classification": "PROVISIONAL",
         "uncertainty_type": "Epistemic",
         "description": "Hydrogen cryocooler Carnot liquefaction efficiency.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.20, "max": 0.30}
+        "parameters": {"min": 0.20, "max": 0.30},
+        "source": "62-mars-isru-closure-v1.md",
+        "rationale": "Provisional Carnot fraction range for high-capacity reverse Brayton cryocoolers."
     },
     "isru_power_mwe": {
+        "parameter": "isru_power_mwe",
+        "nominal_value": 25.0,
         "classification": "SPECIFIED",
         "uncertainty_type": "Epistemic",
         "description": "Precursor surface nuclear reactor electrical output rating.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 25.0, "std_dev": 1.2}
+        "parameters": {"mean": 25.0, "std_dev": 1.2},
+        "source": "63-mars-power-and-thermal-closure-v1.md",
+        "rationale": "Contractual power plant design specification (±1.2 MWe 1-sigma uncertainty)."
     },
     "isru_availability": {
+        "parameter": "isru_availability",
+        "nominal_value": 0.90,
         "classification": "ASSUMED",
         "uncertainty_type": "Aleatory",
         "description": "Plant operational duty cycle / availability factor during active operating days.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.80, "max": 1.00}
+        "parameters": {"min": 0.80, "max": 1.00},
+        "source": "Assumed operational duty cycle scenario",
+        "rationale": "Assumed range reflecting autonomous robotic plant operational availability."
     },
     "downtime_days": {
+        "parameter": "downtime_days",
+        "nominal_value": 45.0,
         "classification": "ASSUMED",
         "uncertainty_type": "Aleatory",
         "description": "Total scheduled and unscheduled maintenance offline duration during precursor campaign.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.0, "max": 90.0}
+        "parameters": {"min": 0.0, "max": 90.0},
+        "source": "Assumed maintenance outage scenario",
+        "rationale": "Assumed maintenance outage duration range across 750-day campaign."
     },
     "lander_1_capacity_mt": {
+        "parameter": "lander_1_capacity_mt",
+        "nominal_value": 150.0,
         "classification": "SPECIFIED",
         "uncertainty_type": "Aleatory",
         "description": "Super-Heavy Cargo Lander 1 payload capacity.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 150.0, "std_dev": 5.0}
+        "parameters": {"mean": 150.0, "std_dev": 5.0},
+        "source": "68-system-reference-model-v5.md",
+        "rationale": "Specified Super-Heavy cargo lander capability specification (±5 t 1-sigma landing dispersion)."
     },
     "lander_2_capacity_mt": {
+        "parameter": "lander_2_capacity_mt",
+        "nominal_value": 150.0,
         "classification": "SPECIFIED",
         "uncertainty_type": "Aleatory",
         "description": "Super-Heavy Cargo Lander 2 payload capacity.",
         "distribution": "Gaussian",
-        "parameters": {"mean": 150.0, "std_dev": 5.0}
+        "parameters": {"mean": 150.0, "std_dev": 5.0},
+        "source": "68-system-reference-model-v5.md",
+        "rationale": "Specified Super-Heavy cargo lander capability specification (±5 t 1-sigma landing dispersion)."
     }
 }
 
@@ -123,26 +171,41 @@ def classify_run_failures(twin, canonical_predicates):
     if not canonical_predicates.get("precursor_payload_closure", True):
         root_failures.append("lander_payload_capacity_deficit")
 
-    # 2. Surface Power Generation Root Failure
-    if not canonical_predicates.get("surface_average_power_closure", True) or not canonical_predicates.get("surface_peak_power_closure", True):
-        root_failures.append("surface_power_generation_deficit")
+    # 2. Surface Power Generation Root Failures (Distinguish Average vs Peak)
+    if not canonical_predicates.get("surface_average_power_closure", True):
+        root_failures.append("surface_average_power_deficit")
+    if not canonical_predicates.get("surface_peak_power_closure", True):
+        root_failures.append("surface_peak_power_deficit")
 
-    # 3. Surface Thermal Rejection Root Failure
+    # 3. Surface Thermal Rejection Root Failures (Distinguish Capacity vs Margin)
     if not canonical_predicates.get("surface_thermal_closure", True):
-        root_failures.append("surface_thermal_rejection_deficit")
+        root_failures.append("surface_thermal_capacity_deficit")
+    elif not canonical_predicates.get("surface_thermal_margin_compliance", True):
+        root_failures.append("surface_thermal_margin_deficit")
 
-    # 4. Propellant Production Campaign Root Failure (when power/thermal/payload closed)
+    # 4. Propellant Production Campaign Root Failure (if no upstream payload, power, or thermal failure)
     if not canonical_predicates.get("isru_production_complete", True):
-        if "lander_payload_capacity_deficit" not in root_failures and \
-           "surface_power_generation_deficit" not in root_failures and \
-           "surface_thermal_rejection_deficit" not in root_failures:
+        upstream_failures = [
+            "lander_payload_capacity_deficit",
+            "surface_average_power_deficit",
+            "surface_peak_power_deficit",
+            "surface_thermal_capacity_deficit",
+            "surface_thermal_margin_deficit"
+        ]
+        if not any(f in root_failures for f in upstream_failures):
             root_failures.append("isru_propellant_production_deficit")
 
     # 5. Depot Verification / Infrastructure Root Failure
     if not canonical_predicates.get("depot_verified", True):
-        if "isru_propellant_production_deficit" not in root_failures and \
-           "lander_payload_capacity_deficit" not in root_failures and \
-           "surface_power_generation_deficit" not in root_failures:
+        upstream_failures = [
+            "lander_payload_capacity_deficit",
+            "surface_average_power_deficit",
+            "surface_peak_power_deficit",
+            "surface_thermal_capacity_deficit",
+            "surface_thermal_margin_deficit",
+            "isru_propellant_production_deficit"
+        ]
+        if not any(f in root_failures for f in upstream_failures):
             root_failures.append("depot_verification_or_transfer_system_failure")
 
     # 6. Spacecraft Vehicle Propellant Exhaustion Root Failure
@@ -157,7 +220,7 @@ def classify_run_failures(twin, canonical_predicates):
     if not canonical_predicates.get("crew_survivability", True):
         root_failures.append("crew_survivability_limit_exceeded")
 
-    # Identify cascaded predicates (failed predicates resulting from upstream root failures)
+    # Identify cascaded predicates (all failed predicates resulting from upstream root failures)
     cascaded_predicates = [k for k, v in canonical_predicates.items() if not v]
 
     return root_failures, cascaded_predicates
@@ -400,15 +463,40 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
         "parameter_sensitivity_ranking": sensitivities
     }
 
-    out_path = "engineering/calculations/mission_monte_carlo.json"
-    with open(out_path, "w") as f:
-        json.dump(summary, f, indent=2)
-
-    print(f"Monte Carlo simulation of {num_runs} cases completed.")
-    print(f"Success rate: {success_rate:.2f}%")
-    print(f"Report written to {out_path}")
     return summary
 
 
+def run_full_monte_carlo_suite(num_runs=10000, output_path="engineering/calculations/mission_monte_carlo.json"):
+    print(f"Executing Monte Carlo analysis suite ({num_runs} runs)...")
+    independent_summary = run_monte_carlo_simulation(num_runs=num_runs, correlated_degradation=False)
+    correlated_summary = run_monte_carlo_simulation(num_runs=num_runs, correlated_degradation=True)
+
+    combined_output = dict(independent_summary)
+    combined_output["independent_uncertainty_analysis"] = {
+        "total_simulated_cases": independent_summary["total_simulated_cases"],
+        "success_rate_percent": independent_summary["estimated_success_probability_percent"],
+        "confidence_interval_95_percent": independent_summary["confidence_interval_95_percent"],
+        "root_failure_counts": independent_summary["causal_failure_taxonomy"]["root_failure_counts"],
+        "reserve_stats": independent_summary["verified_depot_reserve_stress_analysis"]
+    }
+    combined_output["correlated_degradation_scenario_analysis"] = {
+        "total_simulated_cases": correlated_summary["total_simulated_cases"],
+        "success_rate_percent": correlated_summary["estimated_success_probability_percent"],
+        "confidence_interval_95_percent": correlated_summary["confidence_interval_95_percent"],
+        "root_failure_counts": correlated_summary["causal_failure_taxonomy"]["root_failure_counts"],
+        "reserve_stats": correlated_summary["verified_depot_reserve_stress_analysis"],
+        "description": "Modeled environmental common-cause degradation event affecting SOEC, liquefaction, and reactor power output simultaneously."
+    }
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        json.dump(combined_output, f, indent=2)
+
+    print(f"Independent Monte Carlo success rate: {independent_summary['estimated_success_probability_percent']:.2f}%")
+    print(f"Correlated degradation scenario success rate: {correlated_summary['estimated_success_probability_percent']:.2f}%")
+    print(f"Report written to {output_path}")
+    return combined_output
+
+
 if __name__ == "__main__":
-    run_monte_carlo_simulation(10000)
+    run_full_monte_carlo_suite(10000)
