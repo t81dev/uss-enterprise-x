@@ -62,7 +62,7 @@
       "thrust_n": 568.13,
       "actual_dv_kms": 3.605,
       "lnh3_remaining_mt": 42.58,
-      "accumulated_radiation_csv": 54.75
+      "accumulated_radiation_csv": 15.02
     },
     {
       "phase": "Mars Orbit Insertion (MOI)",
@@ -75,7 +75,7 @@
       "actual_dv_kms": 2.1,
       "numerical_dv_kms": 2.1,
       "lh2_remaining_mt": 307.11,
-      "accumulated_radiation_csv": 54.75
+      "accumulated_radiation_csv": 15.02
     },
     {
       "phase": "Mars Propellant Transfer & Operations (640d)",
@@ -87,7 +87,7 @@
       "lh2_reloaded_mt": 2200.0,
       "gross_mass_mt": 3813.92,
       "crew_health_percent": 100.0,
-      "accumulated_radiation_csv": 72.67
+      "accumulated_radiation_csv": 33.1
     },
     {
       "phase": "Trans-Earth Injection (TEI)",
@@ -100,7 +100,7 @@
       "actual_dv_kms": 1.8,
       "numerical_dv_kms": 1.8,
       "lh2_remaining_mt": 1643.02,
-      "accumulated_radiation_csv": 72.67
+      "accumulated_radiation_csv": 33.1
     },
     {
       "phase": "Inbound Cruise NEP (180d)",
@@ -113,7 +113,7 @@
       "thrust_n": 568.13,
       "actual_dv_kms": 0.473,
       "lnh3_remaining_mt": 0.0,
-      "accumulated_radiation_csv": 75.52
+      "accumulated_radiation_csv": 35.95
     },
     {
       "phase": "Earth Orbit Capture (EOI)",
@@ -126,7 +126,7 @@
       "actual_dv_kms": 6.755,
       "numerical_dv_kms": 6.754,
       "lh2_remaining_mt": 0.0,
-      "accumulated_radiation_csv": 75.53
+      "accumulated_radiation_csv": 35.96
     }
   ],
   "final_state": {
@@ -153,7 +153,16 @@
     "radiator_capacity_mwth": 133.35,
     "crew_count": 24,
     "crew_health_percent": 100.0,
-    "accumulated_radiation_csv": 75.53
+    "accumulated_radiation_csv": 35.96,
+    "cumulative_gcr_dose_csv": 28.14,
+    "cumulative_spe_dose_csv": 7.81,
+    "current_shielding_column_g_cm2": 31.4,
+    "propellant_shielding_contribution_g_cm2": 0.0,
+    "gcr_dose_rate_csv_day": 0.0969,
+    "rx_dose_rate_csv_day": 0.028521,
+    "storm_shelter_active": false,
+    "crew_response_time_min": 10.0,
+    "radiation_survivability": true
   },
   "success_predicate_assessment": {
     "mission_success": true,
@@ -181,6 +190,12 @@
       "propellant_reserve_sufficient": true,
       "vehicle_power_margin": true,
       "vehicle_thermal_margin": true,
+      "radiation_model_valid": true,
+      "radiation_survivability": true,
+      "acute_spe_survivability": true,
+      "cumulative_dose_closure": true,
+      "storm_shelter_closure": true,
+      "radiation_mass_conservation": true,
       "crew_survivability": true,
       "mass_conservation": true,
       "no_critical_failure": true,
@@ -220,6 +235,12 @@
       "propellant_reserve_sufficient": true,
       "vehicle_power_margin": true,
       "vehicle_thermal_margin": true,
+      "radiation_model_valid": true,
+      "radiation_survivability": true,
+      "acute_spe_survivability": true,
+      "cumulative_dose_closure": true,
+      "storm_shelter_closure": true,
+      "radiation_mass_conservation": true,
       "crew_survivability": true,
       "mass_conservation": true,
       "no_critical_failure": true

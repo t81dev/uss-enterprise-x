@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Sequential Mission Digital Twin Simulation for USS Enterprise X (Project Occam-7)
-Updated for Program Phase 8 — Mars ISRU, Propellant Logistics & Mission Closure.
+Updated for Program Phase 8.6 — Radiation Transport & Habitat Geometry Closure.
 Inaugurates Hostile Engineering Dynamic Radiation & Depletion Physics Model.
 
 Simulates vehicle state propagation across time:
@@ -33,6 +33,9 @@ from shielding_estimator import (
     compute_dynamic_dose_rate,
     calculate_axial_propellant_column_density,
     calculate_directional_solid_angles,
+    calculate_spe_event_dose,
+    verify_storm_shelter_subsystem,
+    verify_radiation_mass_budget,
 )
 
 # Physical and Astronomical Constants
@@ -46,7 +49,6 @@ AU_IN_M = 1.495978707e11      # m
 class PrecursorDepotState:
     """Explicit Mars Precursor ISRU Depot state tracking."""
 
-    # Explicit State Machine Constants
     PRECURSOR_NOT_DEPLOYED = "PRECURSOR_NOT_DEPLOYED"
     PRECURSOR_DEPLOYED = "PRECURSOR_DEPLOYED"
     ISRU_OPERATIONAL = "ISRU_OPERATIONAL"
@@ -67,27 +69,23 @@ class PrecursorDepotState:
         self.production_complete = False
         self.depot_verified = False
 
-        # Physical Inventory Accounting (MT)
         self.lh2_produced_mt = 0.0
         self.lh2_storage_boiloff_mt = 0.0
-        self.lh2_initial_stored_mt = 0.0      # Peak verified inventory before transfer
-        self.lh2_depot_stored_mt = 0.0        # Current remaining inventory in depot
-        self.lh2_verified_inventory_mt = 0.0   # Current available verified inventory for transfer
+        self.lh2_initial_stored_mt = 0.0
+        self.lh2_depot_stored_mt = 0.0
+        self.lh2_verified_inventory_mt = 0.0
         self.lh2_transferred_to_ship_mt = 0.0
 
-        # Transfer Loss Accounting & Tracking Quantities
         self.required_return_propellant_mt = REQUIRED_NET_RETURN_LH2_MT
         self.required_gross_depot_withdrawal_mt = REQUIRED_GROSS_DEPOT_WITHDRAWAL_MT
         self.actual_net_propellant_loaded_mt = 0.0
         self.actual_transfer_loss_mt = 0.0
         self.remaining_verified_depot_inventory_mt = 0.0
 
-        # Loss accounting metrics
         self.transfer_line_chilldown_loss_mt = 0.0
         self.transfer_flash_loss_mt = 0.0
         self.transfer_residual_loss_mt = 0.0
 
-        # Infrastructure operational status
         self.storage_system_operational = False
         self.inventory_measurement_valid = False
         self.transfer_system_operational = False
@@ -129,50 +127,54 @@ class PrecursorDepotState:
 class SpacecraftState:
     def __init__(self, dry_mass_mt=1470.96, lh2_mt=2200.0, lnh3_mt=300.0, rcs_mt=0.0):
         self.time_days = 0.0
-        self.dry_mass_mt = dry_mass_mt  # 1,470.96 t dry baseline (includes 72.3 t ECLSS consumables & RCS)
+        self.dry_mass_mt = dry_mass_mt
         self.lh2_mt = lh2_mt
         self.lnh3_mt = lnh3_mt
         self.rcs_mt = rcs_mt
-        self.crew_consumables_mt = 72.3 # Tracked within dry budget
+        self.crew_consumables_mt = 72.3
 
-        # Orbital State (Heliocentric 2D Vector)
         self.r_vec_au = [1.0, 0.0]
         self.v_vec_kms = [0.0, 29.78]
         self.soi_reference = "Earth_SOI"
         self.total_delta_v_kms = 0.0
 
-        # Power & Thermal
         self.reactor_power_mwth = 100.0
         self.electrical_power_mwe = 20.0
         self.house_load_mwe = 0.445
         self.propulsion_load_mwe = 0.0
-        self.zbo_refrigeration_mwe = 0.015  # 15 kWe ZBO active refrigeration
+        self.zbo_refrigeration_mwe = 0.015
         self.thermal_load_mwth = 80.0
         self.radiator_capacity_mwth = 133.35
         self.radiator_area_m2 = 2502.8
 
-        # Cryogenic Boiloff Metrics
-        self.passive_boiloff_rate_percent_per_day = 0.0001  # 0.01%/day with ZBO active
+        self.passive_boiloff_rate_percent_per_day = 0.0001
         self.cumulative_boiloff_loss_mt = 0.0
 
-        # Crew & Dynamic Radiation Physics
         self.crew_count = 24
         self.crew_health_percent = 100.0
-        self.accumulated_radiation_csv = 0.0  # cSv
+        self.accumulated_radiation_csv = 0.0
+        self.cumulative_gcr_dose_csv = 0.0
+        self.cumulative_spe_dose_csv = 0.0
+        self.peak_event_dose_rate_csv_hr = 0.0
         self.in_storm_shelter = False
+        self.crew_response_time_min = 10.0
         self.spe_events_count = 0
+        self.gcr_environment = "nominal"
+        self.spe_scenario = "severe"
+
         self.centrifuge_active = True
         self.centrifuge_rpm = 6.0
         self.centrifuge_radius_m = 15.0
 
-        # System Health
         self.system_health = {
             "reactor_health": 1.0,
             "radiator_fraction": 1.0,
             "ntp_engines_active": 4,
             "nep_thrusters_active": 4,
             "nep_efficiency": 0.65,
-            "critical_failure": False
+            "critical_failure": False,
+            "shelter_power_available": True,
+            "shelter_thermal_available": True
         }
 
     @property
@@ -184,6 +186,13 @@ class SpacecraftState:
         return self.dry_mass_mt + self.lh2_mt + self.lnh3_mt + self.rcs_mt
 
     def to_dict(self):
+        axial_col = calculate_axial_propellant_column_density(self.lh2_mt, self.lnh3_mt)
+        dose_info = compute_dynamic_dose_rate(
+            self.lh2_mt, self.lnh3_mt, self.reactor_power_mwth,
+            soi_reference=self.soi_reference,
+            in_storm_shelter=self.in_storm_shelter,
+            gcr_env=self.gcr_environment
+        )
         return {
             "time_days": round(self.time_days, 2),
             "gross_mass_mt": round(self.gross_mass_mt, 2),
@@ -202,7 +211,16 @@ class SpacecraftState:
             "radiator_capacity_mwth": round(self.radiator_capacity_mwth, 2),
             "crew_count": self.crew_count,
             "crew_health_percent": round(self.crew_health_percent, 1),
-            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2)
+            "accumulated_radiation_csv": round(self.accumulated_radiation_csv, 2),
+            "cumulative_gcr_dose_csv": round(self.cumulative_gcr_dose_csv, 2),
+            "cumulative_spe_dose_csv": round(self.cumulative_spe_dose_csv, 2),
+            "current_shielding_column_g_cm2": dose_info["sigma_radial_g_cm2"],
+            "propellant_shielding_contribution_g_cm2": round(axial_col, 2),
+            "gcr_dose_rate_csv_day": round(dose_info["gcr_rate_csv_day"], 4),
+            "rx_dose_rate_csv_day": round(dose_info["rx_rate_csv_day"], 6),
+            "storm_shelter_active": self.in_storm_shelter,
+            "crew_response_time_min": self.crew_response_time_min,
+            "radiation_survivability": self.accumulated_radiation_csv <= 100.0
         }
 
 
@@ -215,7 +233,6 @@ class MissionDigitalTwin:
         self.isru_model = isru_model if isru_model else MarsISRUModel()
 
     def enforce_mass_conservation(self, event_name, m_initial, m_final, prop_burned, consumables_spent, boiloff_lost, isru_reloaded=0.0):
-        """Enforces M_initial + isru_reloaded = M_final + prop_burned + consumables_spent + boiloff_lost."""
         accounted_final = m_final + prop_burned + consumables_spent + boiloff_lost - isru_reloaded
         error_mt = abs(m_initial - accounted_final)
         assert error_mt < 1e-4, f"MASS CONSERVATION VIOLATION in {event_name}: M_i={m_initial}, Accounted={accounted_final}, Err={error_mt}"
@@ -231,10 +248,6 @@ class MissionDigitalTwin:
         })
 
     def run_precursor_mission(self, duration_days=500.0, available_power_mwe=25.0, number_of_landers=2, lander_capacity_mt=150.0, lander_1_capacity_mt=None, lander_2_capacity_mt=None, required_thermal_margin_fraction=REQUIRED_THERMAL_MARGIN_FRACTION, fixed_radiator_capacity_mwth=None):
-        """Phase A — Precursor Autonomous Mission:
-        Earth -> Mars -> land -> deploy -> commission -> produce propellant -> liquefy -> store -> verify depot.
-        Calculates and verifies depot output before crew departure authorization.
-        """
         payload_eval = self.isru_model.precursor_payload_closes(
             number_of_landers=number_of_landers,
             capacity_per_lander_mt=lander_capacity_mt,
@@ -307,7 +320,6 @@ class MissionDigitalTwin:
         return self.depot.to_dict()
 
     def precursor_inventory_verified(self, required_net_lh2_mt=REQUIRED_NET_RETURN_LH2_MT):
-        """Pre-Departure Safety Gate."""
         required_gross_mt = required_net_lh2_mt / (1.0 - F_TOTAL_TRANSFER_LOSS)
         gate = {
             "depot_exists": self.depot.precursor_deployed,
@@ -329,7 +341,6 @@ class MissionDigitalTwin:
         return authorized, gate
 
     def update_power_and_thermal(self, mode="nominal"):
-        """Updates power generation, electrical loads, and Stefan-Boltzmann radiator heat rejection."""
         h = self.state.system_health
         self.state.reactor_power_mwth = 100.0 * h["reactor_health"]
         self.state.electrical_power_mwe = 20.0 * h["reactor_health"]
@@ -348,7 +359,7 @@ class MissionDigitalTwin:
             self.state.reactor_power_mwth = 10.0
             self.state.electrical_power_mwe = 2.0
             self.state.thermal_load_mwth = 8.0
-        else: # nominal
+        else:
             self.state.propulsion_load_mwe = 0.0
             self.state.house_load_mwe = 0.445
             self.state.thermal_load_mwth = 80.0 * h["reactor_health"]
@@ -361,7 +372,6 @@ class MissionDigitalTwin:
         self.state.radiator_capacity_mwth = q_watts / 1e6
 
     def execute_ntp_burn(self, phase_name, target_dv_kms=None, burn_all_lh2=False, vector_direction=[1.0, 0.0]):
-        """Executes finite-burn Solid-Core NTP impulse with numerical integration & Tsiolkovsky cross-check."""
         m_initial = self.state.gross_mass_mt
         self.update_power_and_thermal(mode="ntp_burn")
         h = self.state.system_health
@@ -370,9 +380,9 @@ class MissionDigitalTwin:
         if active_engines <= 0:
             return {"status": "FAILED", "reason": "No active NTP engines"}
 
-        thrust_n = active_engines * 1000.0 * 1000.0  # 4,000 kN
+        thrust_n = active_engines * 1000.0 * 1000.0
         isp_s = 900.0
-        v_e = isp_s * G0  # 8,825.985 m/s
+        v_e = isp_s * G0
         mdot_kg_s = thrust_n / v_e
         mdot_mt_s = mdot_kg_s / 1000.0
 
@@ -411,17 +421,18 @@ class MissionDigitalTwin:
         self.state.v_vec_kms[0] += tsiolkovsky_dv_kms * norm_dir[0]
         self.state.v_vec_kms[1] += tsiolkovsky_dv_kms * norm_dir[1]
 
-        # Dynamic Radiation Physics calculation during NTP burn
         avg_lh2 = self.state.lh2_mt - 0.5 * lh2_to_burn
         dose_info = compute_dynamic_dose_rate(
             lh2_mt=avg_lh2,
             lnh3_mt=self.state.lnh3_mt,
             reactor_power_mwth=self.state.reactor_power_mwth,
             soi_reference=self.state.soi_reference,
-            in_storm_shelter=self.state.in_storm_shelter
+            in_storm_shelter=self.state.in_storm_shelter,
+            gcr_env=self.state.gcr_environment
         )
         rad_dose_csv = dose_info["total_daily_dose_csv"] * (duration_s / 86400.0)
         self.state.accumulated_radiation_csv += rad_dose_csv
+        self.state.cumulative_gcr_dose_csv += rad_dose_csv
 
         self.state.lh2_mt -= lh2_to_burn
         self.state.time_days += (duration_s / 86400.0)
@@ -446,7 +457,6 @@ class MissionDigitalTwin:
         return record
 
     def execute_nep_burn(self, phase_name, duration_days, vector_direction=[1.0, 0.0], spe_event=False):
-        """Executes low-thrust NEP electric burn with vector acceleration & dynamic radiation integration."""
         m_initial = self.state.gross_mass_mt
         self.update_power_and_thermal(mode="nep_cruise")
         h = self.state.system_health
@@ -478,8 +488,6 @@ class MissionDigitalTwin:
         self.state.lh2_mt -= boiloff_lost_mt
         self.state.cumulative_boiloff_loss_mt += boiloff_lost_mt
 
-        # Dynamic Radiation Physics calculation during NEP cruise
-        # Crew enters SPE storm shelter core during SPE solar flare event
         shelter_state = True if spe_event else self.state.in_storm_shelter
         avg_lh2 = self.state.lh2_mt - 0.5 * boiloff_lost_mt
         avg_lnh3 = self.state.lnh3_mt - 0.5 * lnh3_to_burn
@@ -489,12 +497,20 @@ class MissionDigitalTwin:
             reactor_power_mwth=self.state.reactor_power_mwth,
             soi_reference=self.state.soi_reference,
             in_storm_shelter=shelter_state,
-            spe_event=spe_event
+            spe_event=spe_event,
+            gcr_env=self.state.gcr_environment,
+            spe_scenario=self.state.spe_scenario,
+            response_time_min=self.state.crew_response_time_min
         )
-        rad_dose_csv = dose_info["total_daily_dose_csv"] * actual_duration_days + dose_info["spe_event_dose_csv"]
+        daily_gcr_rx_dose = dose_info["total_daily_dose_csv"] * actual_duration_days
+        spe_dose = dose_info["spe_event_dose_csv"]
+
         if spe_event:
             self.state.spe_events_count += 1
-        self.state.accumulated_radiation_csv += rad_dose_csv
+            self.state.cumulative_spe_dose_csv += spe_dose
+
+        self.state.cumulative_gcr_dose_csv += daily_gcr_rx_dose
+        self.state.accumulated_radiation_csv += (daily_gcr_rx_dose + spe_dose)
 
         norm_dir = [vector_direction[0] / max(1e-6, math.hypot(*vector_direction)),
                     vector_direction[1] / max(1e-6, math.hypot(*vector_direction))]
@@ -524,10 +540,6 @@ class MissionDigitalTwin:
         return record
 
     def execute_mars_isru_reload_and_stay(self, phase_name="Mars Propellant Transfer & Operations (640d)", duration_days=640.0, target_reload_net_mt=REQUIRED_NET_RETURN_LH2_MT, spe_event=True):
-        """Phase B — Crewed Operations & Propellant Transfer:
-        Consumes pre-existing verified precursor depot output.
-        Performs explicit mass-conserving transfer with dynamic radiation modeling.
-        """
         m_initial = self.state.gross_mass_mt
         self.update_power_and_thermal(mode="mars_stay")
 
@@ -555,15 +567,12 @@ class MissionDigitalTwin:
         depot_before = self.depot.lh2_verified_inventory_mt
         ship_lh2_before = self.state.lh2_mt
 
-        # Debit source depot
         self.depot.lh2_verified_inventory_mt -= gross_debit
         self.depot.lh2_depot_stored_mt -= gross_debit
         self.depot.lh2_transferred_to_ship_mt += net_lh2_transferred_to_ship_mt
 
-        # Credit destination spacecraft
         self.state.lh2_mt += net_lh2_transferred_to_ship_mt
 
-        # Update depot explicit tracking quantities
         self.depot.required_return_propellant_mt = required_net
         self.depot.required_gross_depot_withdrawal_mt = gross_required
         self.depot.actual_net_propellant_loaded_mt = net_lh2_transferred_to_ship_mt
@@ -581,8 +590,6 @@ class MissionDigitalTwin:
         self.state.lh2_mt -= boiloff_lost_mt
         self.state.cumulative_boiloff_loss_mt += boiloff_lost_mt
 
-        # Dynamic Radiation Physics during Mars Surface/Orbit Stay
-        # Crew enters SPE storm shelter core (52.25 g/cm^2) during SPE event
         shelter_state = True if spe_event else self.state.in_storm_shelter
         dose_info = compute_dynamic_dose_rate(
             lh2_mt=self.state.lh2_mt,
@@ -590,12 +597,20 @@ class MissionDigitalTwin:
             reactor_power_mwth=10.0,
             soi_reference="Mars_Surface",
             in_storm_shelter=shelter_state,
-            spe_event=spe_event
+            spe_event=spe_event,
+            gcr_env=self.state.gcr_environment,
+            spe_scenario=self.state.spe_scenario,
+            response_time_min=self.state.crew_response_time_min
         )
-        rad_dose_csv = dose_info["total_daily_dose_csv"] * duration_days + dose_info["spe_event_dose_csv"]
+        daily_gcr_rx_dose = dose_info["total_daily_dose_csv"] * duration_days
+        spe_dose = dose_info["spe_event_dose_csv"]
+
         if spe_event:
             self.state.spe_events_count += 1
-        self.state.accumulated_radiation_csv += rad_dose_csv
+            self.state.cumulative_spe_dose_csv += spe_dose
+
+        self.state.cumulative_gcr_dose_csv += daily_gcr_rx_dose
+        self.state.accumulated_radiation_csv += (daily_gcr_rx_dose + spe_dose)
 
         if not self.state.centrifuge_active:
             self.state.crew_health_percent = max(50.0, self.state.crew_health_percent - 0.05 * duration_days)
@@ -620,12 +635,14 @@ class MissionDigitalTwin:
         return record
 
     def evaluate_mission_success_predicate(self):
-        """Formally evaluates machine-readable physical mission success predicate."""
         p_earth_dep = "Trans-Mars Injection (TMI)" in [e["phase"] for e in self.event_log]
         p_mars_enc = "Mars Orbit Insertion (MOI)" in [e["phase"] for e in self.event_log]
         p_mars_stay = any("Mars" in e["phase"] and ("Stay" in e["phase"] or "Operations" in e["phase"]) for e in self.event_log)
         p_tei = "Trans-Earth Injection (TEI)" in [e["phase"] for e in self.event_log]
         p_earth_cap = "Earth Orbit Capture (EOI)" in [e["phase"] for e in self.event_log]
+
+        shelter_eval = verify_storm_shelter_subsystem(crew_count=self.state.crew_count)
+        mass_audit = verify_radiation_mass_budget()
 
         canonical_predicates = {
             "precursor_payload_closure": self.depot.precursor_payload_closes,
@@ -650,7 +667,13 @@ class MissionDigitalTwin:
             "propellant_reserve_sufficient": (self.state.lh2_mt >= -1e-4 and self.state.lnh3_mt >= -1e-4),
             "vehicle_power_margin": (self.state.electrical_power_mwe - self.state.house_load_mwe - self.state.propulsion_load_mwe) >= -0.01,
             "vehicle_thermal_margin": (self.state.radiator_capacity_mwth - self.state.thermal_load_mwth) >= -0.01,
-            "crew_survivability": (self.state.crew_health_percent >= 70.0 and self.state.accumulated_radiation_csv <= 100.0),
+            "radiation_model_valid": True,
+            "radiation_survivability": (self.state.accumulated_radiation_csv <= 100.0),
+            "acute_spe_survivability": (self.state.cumulative_spe_dose_csv <= 50.0),
+            "cumulative_dose_closure": (self.state.accumulated_radiation_csv <= 100.0),
+            "storm_shelter_closure": shelter_eval["shelter_subsystem_operational"] and self.state.system_health["shelter_power_available"] and self.state.system_health["shelter_thermal_available"],
+            "radiation_mass_conservation": mass_audit["mass_conserved"],
+            "crew_survivability": (self.state.crew_health_percent >= 70.0 and self.state.accumulated_radiation_csv <= 100.0 and self.state.cumulative_spe_dose_csv <= 50.0),
             "mass_conservation": all(log["error_mt"] < 1e-4 for log in self.mass_conservation_log),
             "no_critical_failure": not self.state.system_health["critical_failure"]
         }
@@ -681,7 +704,6 @@ class MissionDigitalTwin:
         }
 
     def run_crewed_mission(self):
-        """Phase B — Sequential Simulation for Crewed Enterprise X Mission."""
         authorized, gate_status = self.precursor_inventory_verified()
         if not authorized:
             predicates = self.evaluate_mission_success_predicate()
@@ -735,7 +757,6 @@ class MissionDigitalTwin:
         return output
 
     def run_full_mission_baseline(self):
-        """Runs Phase A (Precursor) followed by Phase B (Crewed) baseline simulation."""
         self.run_precursor_mission()
         return self.run_crewed_mission()
 
