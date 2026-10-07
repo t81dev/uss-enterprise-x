@@ -1,67 +1,123 @@
-# 27 — Quantitative Radiation Protection Model
+# 27 — Quantitative Radiation Protection Model & Hostile Engineering Shielding Audit
 
 **Document ID:** `27-radiation-protection-model.md`
-**Shielding Column Density Definition:**
-$$\text{Column Density } (\sigma) = \rho \cdot t \quad [\text{g/cm}^2]$$
-where $\rho$ is material density ($\text{g/cm}^3$) and $t$ is thickness ($\text{cm}$).
+**Digital Twin Source:** `engineering/calculations/shielding_estimator.py` & `engineering/calculations/mission_digital_twin.py`
+**Program Phase:** Post-Phase 8.5 Hostile Engineering Radiation & Depletion Physics Audit
+**Program Status:** **CONDITIONALLY CLOSED UNDER OPTION F HYBRID DYNAMIC ARCHITECTURE**
 
 ---
 
-## 1. Radiation Threat Environments: SPE vs GCR
+## 1. Executive Finding & Concise Determination
 
-| Parameter | Solar Particle Events (SPE) | Galactic Cosmic Rays (GCR) |
-|---|---|---|
-| **Particle Physics Source** | Solar Coronal Mass Ejections (CMEs) | Extra-solar relativistic heavy ions (HZE particles) |
-| **Energy Spectrum** | Low to moderate energy ($10\text{--}100\text{ MeV}$ protons) | Relativistic ultra-high energy ($0.1\text{--}10\text{ GeV/nucleon}$) |
-| **Temporal Profile** | Acute transient events ($12\text{--}48\text{ hours}$) | Continuous isotropic background flux ($1,000\text{ days}$) |
-| **Shielding Strategy** | Thick hydrogenous mass ($>40\text{ g/cm}^2$) localized in storm shelter | Large-scale passive mass, material atomic mass optimization, or fast transit |
-| **Secondary Production** | Minimal secondary neutrons / Bremsstrahlung | High risk of secondary neutron spallation in heavy metals (e.g. Lead/Tungsten) |
-| **Unshielded Dose Rate** | $1,000\text{--}5,000\text{ mSv/event}$ (Lethal without shelter) | $500\text{--}800\text{ mSv/year}$ ($1,500\text{ mSv}$ per 1,000-day mission) |
-| **Target Shielded Dose** | $< 50\text{ mSv/event}$ (Negligible clinical impact) | $< 150\text{ mSv/year}$ ($420\text{ mSv}$ 1,000-day mission limit) |
+> **EXECUTIVE DETERMINATION: RADIATION PROTECTION IS CONDITIONALLY CLOSED UNDER THE OPTION F HYBRID DYNAMIC ARCHITECTURE.**
 
----
+A hostile engineering audit of Project Occam-7's prior radiation protection model revealed that treating the spacecraft's $2,500\text{ MT}$ propellant inventory as equivalent to a validated radiation shield was physically indefensible for two primary reasons:
 
-## 2. Material Performance & Column Density Analysis
+1. **Directional Solid Angle Fallacy ($\Omega_{axial}$ vs $\Omega_{radial}$):** Propellant tanks arranged linearly along the $380\text{m}$ spine truss subtend an axial solid angle of $\Omega_{axial} \approx 0.090\text{ sr}$ ($\approx 0.72\%$ of the $4\pi$ sky). The remaining $99.28\%$ of space ($\Omega_{radial} \approx 12.48\text{ sr}$) is exposed to isotropic Galactic Cosmic Rays (GCR) and omnidirectional Solar Particle Events (SPE). Main propellant mass provides almost **zero protection** against $99\%$ of background space radiation.
+2. **Propellant Depletion Void:** Propellant mass decreases dramatically throughout the mission (dropping to $0\text{ t}$ during Mars stay prior to ISRU reload and after final Earth capture). A spacecraft cannot claim radiation credit for propellant that has already been burned.
 
-| Material | Density $\rho$ (g/cm³) | Hydrogen Mass Fraction ($f_H$) | Secondary Neutron Spallation Risk | Primary Application Zone | Required Thickness for $25\text{ g/cm}^2$ (cm) | Mass Efficiency Score |
-|---|---:|---:|---|---|---:|---|
-| **Water ($\text{H}_2\text{O}$)** | 1.00 | $11.2\%$ | Very Low | Storm shelter jacket & circumferential tanks | 25.0 cm | **Optimal Dual-Use** |
-| **Polyethylene (HDPE)** | 0.95 | $14.4\%$ | Extremely Low | Internal liner & storm shelter inner wall | 26.3 cm | **Optimal Polymer** |
-| **Liquid Hydrogen ($\text{LH}_2$)** | 0.071 | $100.0\%$ | Zero | Interplanetary main tank axial buffer | 352.1 cm | **Maximum Hydrogen Efficiency** |
-| **Liquid Ammonia ($\text{LNH}_3$)** | 0.681 | $17.8\%$ | Very Low | Secondary tank buffer | 36.7 cm | High |
-| **Boron Carbide ($B_4C$)** | 2.52 | $0.0\%$ | High neutron absorption ($\sigma_B$) | Reactor shadow shield thermal neutron absorber | 9.9 cm | Specialized Reactor Shielding |
-| **Tungsten (W)** | 19.25 | $0.0\%$ | High secondary Bremsstrahlung | Reactor shadow shield gamma absorber | 1.3 cm | Dense Gamma Absorber |
-| **316L Stainless Steel** | 8.00 | $0.0\%$ | Moderate secondary spallation | Primary pressure hull & spine truss | 3.1 cm | Low (Structural Only) |
+**Resolution:** The architecture is validated by establishing strict separation between directional reactor shadow shielding (handled via $45\text{ MT}$ Tungsten/$B_4C/LiH$ shadow shield $+ 380\text{m}$ distance $+ 1/R^2$ geometric attenuation) and circumferential/radial habitat shielding ($240\text{ MT}$ fixed passive dry mass allocation in `mass_budget.py`, comprising $184.6\text{ MT}$ circumferential water/polyethylene habitat buffer $+ 55.4\text{ MT}$ central SPE storm shelter core).
 
 ---
 
-## 3. Vehicle Zonal Shielding Allocation
+## 2. Inventory of Current Radiation & Shielding Assumptions
+
+Every radiation assumption in the repository is explicitly classified below according to strict physical reality standards:
+
+| Assumption Description | Scope & Application | Reality Classification | Forensic Status & Remediation |
+| :--- | :--- | :---: | :--- |
+| **Fast Reactor Shadow Shield ($45\text{ MT}$)** | Line-of-sight attenuation for aft reactor core ($100\text{ MWth}$) | **VERIFIED** | Physics-derived. $30\text{ t}$ Tungsten $+ 15\text{ t}$ $B_4C/LiH$ reduces core flux by factor $1.43 \times 10^{-4}$. |
+| **Inverse-Square Geometric Attenuation ($380\text{m}$)** | Reactor-to-habitat separation distance | **VERIFIED** | First-principles geometric $1/R^2$ attenuation factor $= 6.925 \times 10^{-6}$. |
+| **Central SPE Storm Shelter Core ($52.25\text{ g/cm}^2$)** | $4\text{m} \times 10\text{m}$ inner cylinder refuge for solar flare events | **VERIFIED** | Multi-layer SS/Water/HDPE/SS stack attenuates SPE proton flux by $>98.5\%$. |
+| **Circumferential Habitat Water Buffer ($20.0\text{ g/cm}^2$)** | Radial $360^\circ$ GCR protection ($184.6\text{ MT}$ fluid mass) | **VERIFIED** | Formally accounted for within $240\text{ MT}$ passive shielding dry mass budget. |
+| **Main Tank Axial Propellant Shielding ($>200\text{ g/cm}^2$)** | Dual-use shadow shield along axial spine | **MODELED / ASSUMED** | Valid for axial line-of-sight when tanks full, but depletes to $0\text{ g/cm}^2$ when empty. |
+| **Constant Daily Radiation Dose Rate ($0.07\text{ cSv/d}$)** | Legacy digital twin static scalar dose rate assumption | **REJECTED / DEFICIENT** | Replaced by dynamic time-dependent physics calculation in `mission_digital_twin.py`. |
+| **Active ZBO Cryogenic Refrigeration ($15\text{ kWe}$)** | Zero-boiloff active cooling for hydrogen mass retention | **FRONTIER** | Requires long-duration space-qualified reverse Brayton cryocoolers. |
+| **Active Electromagnetic / Plasma Shielding** | Charged particle deflectors | **SCIENCE FICTION** | Retained strictly as speculative research annex; excluded from baseline. |
+
+---
+
+## 3. Physical Geometry & Spatial Topology Reconstruction
 
 ```
-+--------------------------------------------------------------------------------------------------+
-| AFT REACTOR ZONE         MAIN PROPELLANT TANKS          CENTRAL HABITAT           FORWARD STORM  |
-| Reactor + Shadow Shield | 2,200 MT LH2 / 300 MT LNH3  | Water Tanks (20 g/cm²)  | SHELTER CORE  |
-| (Tungsten/B4C/LiH)      | (Axial Column: >200 g/cm²) | Habitats: 30 g/cm² total | (52.75 g/cm²) |
-+--------------------------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------+
+| AFT REACTOR CORE   SHADOW SHIELD   380m SPINE TRUSS & RADIATORS   PROPELLANT TANKS   HABITAT DECK CORE  |
+| 100 MWth Fast Core | 45 MT W/B4C | 2,502 m² Radiator Arrays     | 12m Dia Tanks     | 8m Dia x 30m Cylinder|
+| z = -380m          | z = -375m   | z = -350m to -50m            | z = -50m to -10m  | z = 0m to +30m       |
++---------------------------------------------------------------------------------------------------------+
+                     \__________________ Axial Angle: 9.73° (0.090 sr / 0.72% Sky) ___________________/
+                     \__________________ Radial Sky: 350.27° (12.48 sr / 99.28% Sky) _________________/
 ```
 
-1. **Reactor Exclusion & Shadow Shield Zone:**
-   - Fast reactor produces $100\text{ MWth}$ neutron and gamma flux.
-   - Conical shadow shield ($30\text{ MT}$ Tungsten $+ 15\text{ MT}$ $B_4C/LiH$) mounted at aft reactor reduces core radiation dose at the habitat ($380\text{m}$ separation) to $<0.05\text{ mSv/hr}$ via $1/r^2$ geometric attenuation and physical absorption.
-2. **Main Propellant Tank Axial Buffer:**
-   - $2,200\text{ MT}$ of $\text{LH}_2$ and $300\text{ MT}$ of $\text{LNH}_3$ positioned along the $310\text{m}$ spine provide an axial column density of $>200\text{ g/cm}^2$, fully absorbing residual reactor neutrons and scatter gammas.
-3. **Nominal Habitat Circumferential Zone:**
-   - Outer circumferential water tanks ($20\text{ cm}$ thickness $= 20.0\text{ g/cm}^2$) + $8\text{mm}$ stainless steel pressure hull ($6.4\text{ g/cm}^2$) + internal equipment racks ($5.0\text{ g/cm}^2$) provide ambient habitat shielding of $31.4\text{ g/cm}^2$.
-   - Attenuates background GCR dose from $600\text{ mSv/yr}$ down to $\sim 140\text{ mSv/yr}$.
-4. **Central SPE Storm Shelter Core:**
-   - Cylindrical refuge ($4.0\text{m}$ diameter $\times 10.0\text{m}$ length) buried in the innermost center of Habitat Deck 3.
-   - Surrounded by a $40\text{ cm}$ double-wall water jacket ($40.0\text{ g/cm}^2$) $+ 5\text{ cm}$ HDPE liner ($4.75\text{ g/cm}^2$) $+ 1.0\text{ cm}$ stainless steel structural wall ($8.0\text{ g/cm}^2$).
-   - **Total Passive Column Density:** $52.75\text{ g/cm}^2$.
-   - Attenuates peak Solar Particle Event (SPE) proton flux by $>99.2\%$, reducing total event dose inside shelter to $<15\text{ mSv/event}$.
+### Spatial Topology Parameters:
+* **Spine Axis Length:** $380.0\text{ m}$ total separation between aft reactor core and forward habitat deck.
+* **Main Propellant Tank Geometry:** $12.0\text{ m}$ outer diameter, $280\text{ m}$ total effective tank stack length.
+* **Habitat Hull Geometry:** $8.0\text{ m}$ outer diameter, $30.0\text{ m}$ pressurized cylinder length.
+* **Solid Angle Subtended by Tanks ($\Omega_{axial}$):**
+  $$\theta_{axial} = \arctan\left(\frac{6.0\text{ m}}{35.0\text{ m}}\right) = 9.73^\circ = 0.170\text{ rad}$$
+  $$\Omega_{axial} = 2\pi (1 - \cos 9.73^\circ) \approx 0.090\text{ sr} \quad (0.72\%\text{ of } 4\pi\text{ sky})$$
+* **Radial/Circumferential Sky ($\Omega_{radial}$):**
+  $$\Omega_{radial} = 4\pi - \Omega_{axial} = 12.476\text{ sr} \quad (99.28\%\text{ of } 4\pi\text{ sky})$$
 
 ---
 
-## 4. Degraded-Shielding & Propellant Depletion Analysis
+## 4. Time-Dependent Mission-Phase Shielding & Depletion Table
 
-* **Late-Mission Propellant Depletion Case:** As $\text{LH}_2$ propellant is consumed during Trans-Earth Injection (TEI), axial propellant column density drops from $200\text{ g/cm}^2$ to $15\text{ g/cm}^2$.
-* **Mitigation Protocol:** The $380\text{m}$ physical separation distance alone provides $1/r^2$ flux attenuation factor of $1.4 \times 10^5$. Reactor decay power during return cruise drops to $20\text{ MWe}$, maintaining reactor dose at habitat deck below $0.10\text{ mSv/hr}$.
+The table below evaluates shielding thickness, reactor power, and daily dose rates across all 9 canonical mission phases:
+
+| Phase | Phase Name | $\text{LH}_2$ Mass ($\text{MT}$) | $\text{LNH}_3$ Mass ($\text{MT}$) | Axial Column ($\text{g/cm}^2$) | Radial Column ($\text{g/cm}^2$) | Reactor Output | Daily Dose Rate ($\text{cSv/day}$) | Vulnerability & Protection Mode |
+| :---: | :--- | ---:| ---:| ---:| ---:| :---: | ---:| :--- |
+| **1** | **Earth Departure** | $2,200.0$ | $300.0$ | $1,988.0$ | $31.4$ | $100\text{ MW}_{th}$ | $0.038$ | Maximum propellant buffer; full reactor shadow. |
+| **2** | **Outbound Cruise NEP** | $810.8$ | $42.6$ | $742.1$ | $31.4$ | $15\text{ MW}_{e}$ | $0.041$ | LNH3 depleting; GCR dominated by radial $31.4\text{ g/cm}^2$. |
+| **3** | **Mars Arrival / MOI** | $307.1$ | $42.6$ | $278.4$ | $31.4$ | $100\text{ MW}_{th}$ | $0.045$ | LH2 burned during MOI; axial shield decreasing. |
+| **4** | **Mars Surface Stay** | $0.0$ | $42.6$ | $0.0$ | $47.4$ | $2\text{ MW}_{e}$ | $0.028$ | Surface $2\pi$ planet shadow $+ 16\text{ g/cm}^2$ $CO_2$ atmosphere. |
+| **5** | **Mars ISRU Reload** | $2,200.0$ | $42.6$ | $1,988.0$ | $47.4$ | $2\text{ MW}_{e}$ | $0.027$ | Refueling complete; return propellant verified. |
+| **6** | **Trans-Earth Injection** | $1,643.0$ | $42.6$ | $1,485.0$ | $31.4$ | $100\text{ MW}_{th}$ | $0.039$ | LH2 consumed for TEI burn; reactor throttled post-burn. |
+| **7** | **Inbound Cruise NEP** | $1,638.1$ | $0.0$ | $1,480.0$ | $31.4$ | $15\text{ MW}_{e}$ | $0.039$ | LNH3 fully exhausted; NEP electric cruise complete. |
+| **8** | **Earth Capture EOI** | $0.0$ | $0.0$ | $0.0$ | $31.4$ | $100\text{ MW}_{th}$ | $0.062$ | All propellant burned; reactor shielded by shadow shield $+ 1/R^2$. |
+| **9** | **Post-Mission Depletion**| $0.0$ | $0.0$ | $0.0$ | $31.4$ | $0\text{ MW}_{th}$ | $0.038$ | Reactor shut down; ambient background GCR baseline. |
+
+---
+
+## 5. Separation of Radiation Threat Environments
+
+1. **Galactic Cosmic Rays (GCR):** Relativistic $0.1\text{--}10\text{ GeV/nucleon}$ HZE nuclei. Isotropic ($4\pi$). Attenuation governed strictly by radial habitat shielding ($31.4\text{ g/cm}^2$ SS/Water/HDPE). Hydrogen-rich water/polyethylene suppresses secondary neutron spallation.
+2. **Solar Particle Events (SPE):** Solar coronal mass ejection protons ($10\text{--}100\text{ MeV}$). Directionally variable/omnidirectional. Attenuated by $>98.5\%$ inside central $52.25\text{ g/cm}^2$ SPE Storm Shelter core during flare arrival ($12\text{--}48\text{ hrs}$).
+3. **Secondary Neutron Spallation:** Produced when heavy GCR ions strike high-Z metals (316L SS pressure hull). Mitigated by inner low-Z hydrogenous liners (water jacket $+ 15\text{ cm}$ HDPE polymer).
+4. **Reactor Primary & Scatter Radiation:** Fast neutrons $+ \gamma$-flux from $100\text{ MWth}$ fast fission reactor. Highly directional from aft end. Attenuated by $45\text{ MT}$ Tungsten/$B_4C/LiH$ shadow shield, $380\text{m}$ $1/R^2$ geometric separation, and axial propellant when present.
+
+---
+
+## 6. Trade Study of Alternative Shielding Architectures
+
+| Architecture Option | Description | Mass Penalty | Volume Impact | Depletion Robustness | Crew Safety & Viability | Evaluation & Status |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **Option A: Dedicated Solid Shielding** | Tungsten/Lead shell around entire habitat | $>400\text{ MT}$ | Heavy | Excellent | Poor (Secondary Neutrons) | **REJECTED:** Destroys dry mass budget; secondary neutron hazard. |
+| **Option B: Propellant-as-Shielding Only** | Rely strictly on LH2/LNH3 propellant tanks | $0\text{ MT}$ | Zero | Complete Failure | Lethal ($99\%$ Radial Exposure) | **REJECTED:** Depletes to 0 g/cm²; fails 4pi GCR geometry. |
+| **Option C: Consumables-as-Shielding Only** | Position 72.3 t ECLSS food/water circumferentially | $0\text{ MT}$ | Moderate | Degrades | Unsafe ($<10\text{ g/cm}^2$ coverage) | **REJECTED:** Insufficient total mass to cover 8m x 30m cylinder. |
+| **Option D: Distributed Multifunctional** | Avionics, batteries, ECLSS racks on walls | $0\text{ MT}$ | Low | Robust | Moderate | **INSUFFICIENT:** Good secondary contribution, insufficient standalone mass. |
+| **Option E: Storm Shelter Refuge Only** | Crew lives inside 4m x 10m storm shelter tube | $55.4\text{ MT}$ | Severe | Excellent | Unusable (Severe Atrophy) | **REJECTED:** Psychological/physiological failure over 850 days. |
+| **Option F: Hybrid Architecture** | Fixed 240 MT Passive Shielding + Reactor Shadow Shield + SPE Refuge | **240.0 MT** | Optimal | **100% Independent of Depletion** | **OPTIMAL (33.88–75.53 cSv)** | **SELECTED BASELINE:** Mechanically and physically closed. |
+
+---
+
+## 7. Circular Reasoning Forensic Audit & Digital Twin Updates
+
+### Exposed Circular Dependencies:
+* **Circular Loop 1:** Legacy models asserted $100\%$ crew survivability based on a static scalar rate ($0.07\text{ cSv/d}$).
+* **Circular Loop 2:** The static rate assumed continuous $>200\text{ g/cm}^2$ axial propellant shielding.
+* **Circular Loop 3:** Propellant was consumed by propulsive burns required for trajectory closure.
+* **Circular Loop 4:** Trajectory closure emptied tanks to $0\text{ g/cm}^2$, but crew survivability models continued claiming propellant shielding credit!
+
+### Digital Twin Remediation:
+`mission_digital_twin.py` was updated to import `compute_dynamic_dose_rate()` from `shielding_estimator.py`. Radiation dose is now integrated dynamically at every numerical step based on instantaneous $\text{LH}_2/\text{LNH}_3$ inventory, reactor power mode, $4\pi$ solid angle geometry, and SPE storm shelter protocols.
+
+---
+
+## 8. Program Status & Verification
+
+Under the remediated Option F Hybrid Architecture:
+* **Total Accumulated Mission Dose:** **$75.53\text{ cSv}$** ($0.755\text{ Sv}$), fully inclusive of background GCR, reactor operation, and two SPE flare events inside the storm shelter core.
+* **NASA Career Radiation Safety Limit:** **$100.0\text{ cSv}$** ($1.0\text{ Sv}$).
+* **Safety Margin:** **$+24.47\text{ cSv}$** ($24.47\%\text{ margin}$) below career ceiling.
+* **Test Verification:** All 29 automated consistency and hostile adversarial unit tests pass (`python3 engineering/calculations/test_system_consistency.py`).

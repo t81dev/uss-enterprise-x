@@ -2,14 +2,14 @@
 
 **Document ID:** `68-system-reference-model-v5.md`
 **Baseline Vehicle:** USS Enterprise X (Project Occam-7)
-**Program Phase:** Post-Mars ISRU, Propellant Logistics & Physical Mission Closure (Phase 8.1 Remediated)
-**Program Status:** **ENGINEERINGALLY CONDITIONAL (Status Assignment: B — MARS ISRU CONDITIONALLY CLOSED)**
+**Program Phase:** Post-Mars ISRU, Propellant Logistics & Dynamic Radiation Shielding Audit
+**Program Status:** **ENGINEERINGALLY CONDITIONAL (Status Assignment: B — MARS ISRU & RADIATION CONDITIONALLY CLOSED)**
 
 ---
 
 ## 1. Executive Summary & Vehicle Definition
 
-The System Reference Model v5 represents the authoritative single-source-of-truth engineering baseline for USS Enterprise X following full first-principles integration of the Mars In-Situ Resource Utilization (ISRU) propellant manufacturing plant, surface nuclear power generation, process waste heat radiators, multi-lander payload delivery architecture, pre-departure safety gates, and Phase 8.1 Monte Carlo statistical sensitivity analysis (10,000 runs).
+The System Reference Model v5 represents the authoritative single-source-of-truth engineering baseline for USS Enterprise X following full first-principles integration of the Mars In-Situ Resource Utilization (ISRU) propellant manufacturing plant, surface nuclear power generation, process waste heat radiators, multi-lander payload delivery architecture, pre-departure safety gates, Phase 8.1 Monte Carlo statistical sensitivity analysis (10,000 runs), and Phase 8.5 Hostile Radiation Shielding & Propellant Depletion Physics Audit.
 
 Every parameter in this baseline is classified strictly by its physical reality status to maintain absolute engineering rigor.
 
@@ -66,10 +66,24 @@ Every parameter in this baseline is classified strictly by its physical reality 
 
 ---
 
+### D. Radiation Protection & Dynamic Shielding Reconciliation
+| Parameter | Value | Unit | Reality Class | First-Principles Derivation / Basis | Confidence |
+| :--- | ---:| :---: | :---: | :--- | :---: |
+| **Passive Radiation Shielding Allocation**| **240.00** | $\text{MT}$ | **VERIFIED** | Circumferential water jacket ($184.6\text{ t}$) + SPE core ($55.4\text{ t}$)| High |
+| **Reactor Shadow Shielding Mass** | **45.00** | $\text{MT}$ | **VERIFIED** | Aft Tungsten ($30\text{ t}$) + $B_4C/LiH$ ($15\text{ t}$) conical shield | High |
+| **Ambient Habitat Radial Column Density** | **31.40** | $\text{g/cm}^2$ | **VERIFIED** | $20\text{ cm}$ Water $+ 6.4\text{ g/cm}^2$ SS Hull $+ 5.0\text{ g/cm}^2$ Racks | High |
+| **SPE Storm Shelter Core Column Density** | **52.25** | $\text{g/cm}^2$ | **VERIFIED** | SS / Water / HDPE / SS multi-layer refuge stack | High |
+| **Propellant Tank Subtended Solid Angle** | **0.090** | $\text{sr}$ | **VERIFIED** | Subtends $0.72\%$ of $4\pi$ sky; $99.28\%$ sky is radial | High |
+| **850-Day Accumulated Crew Radiation Dose** | **75.53** | $\text{cSv}$ | **MODELED** | Directional dynamic integration (GCR, SPE, Reactor, Depletion)| High |
+| **NASA Career Radiation Safety Ceiling** | **100.00** | $\text{cSv}$ | **VERIFIED** | Career ceiling standard ($1,000\text{ mSv}$) | High |
+| **Mission Radiation Safety Margin** | **+24.47** | $\text{cSv}$ | **MODELED** | Margin below career radiation safety limit | High |
+
+---
+
 ## 3. Mandatory Classification Hierarchy Standards
 
-1. **VERIFIED:** First-principles calculation, conservation laws, and code verification (e.g. $M_{dry} = 1,470.96\text{ t}$, $E_{isru} = 76.42\text{ kWh/kg}$, $Q_{waste\_isru} = 55.96\text{ MW}_{th}$).
-2. **MODELED:** Physics-based numerical simulation in repository (e.g. $12.250\text{ km/s}$ total $\Delta v$, $99.61\%$ Phase 8.1 Monte Carlo success rate).
+1. **VERIFIED:** First-principles calculation, conservation laws, and code verification (e.g. $M_{dry} = 1,470.96\text{ t}$, $E_{isru} = 76.42\text{ kWh/kg}$, $Q_{waste\_isru} = 55.96\text{ MW}_{th}$, $\Omega_{axial} = 0.090\text{ sr}$).
+2. **MODELED:** Physics-based numerical simulation in repository (e.g. $12.250\text{ km/s}$ total $\Delta v$, $75.53\text{ cSv}$ dynamic radiation dose, $99.61\%$ Phase 8.1 Monte Carlo success rate).
 3. **ASSUMED:** Programmatically required but unproven operational assumptions (e.g. 11 Super-Heavy launches without orbital decay).
 4. **FRONTIER:** Requires technology not currently demonstrated at scale (e.g. $25\text{ MWe}$ surface nuclear Brayton plant, automated glacial ice mining).
 5. **SCIENCE FICTION:** Zero items.
@@ -78,6 +92,6 @@ Every parameter in this baseline is classified strictly by its physical reality 
 
 ## 4. Master Decision Gate Declaration
 
-> **PROGRAM STATUS: B — MARS ISRU CONDITIONALLY CLOSED (`ENGINEERINGALLY CONDITIONAL`)**
+> **PROGRAM STATUS: B — MARS ISRU & RADIATION CONDITIONALLY CLOSED (`ENGINEERINGALLY CONDITIONAL`)**
 
-The physics, thermodynamics, and mass conservation of USS Enterprise X **close quantitatively**. Mission execution strictly mandates adopting **Architecture B (Precursor Autonomous Robotic ISRU Depot)**, ensuring $100\%$ of return propellant is manufactured, stored, and verified in the depot prior to authorizing crew launch from Earth.
+The physics, thermodynamics, mass conservation, and dynamic radiation protection of USS Enterprise X **close quantitatively**. Mission execution strictly mandates adopting **Architecture B (Precursor Autonomous Robotic ISRU Depot)** for propellant logistics and **Option F (Hybrid Shielding Architecture)** for crew radiation protection, ensuring $100\%$ of return propellant is manufactured, stored, and verified in the depot prior to authorizing crew launch from Earth, while maintaining dedicated $240\text{ MT}$ fixed passive shielding for $360^\circ$ radial GCR and SPE storm refuge independent of propellant depletion.
