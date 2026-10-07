@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Automated System Consistency & Sequential Digital Twin Test Suite for Project Occam-7
-Updated for Program Phase 8.5 — Radiation Protection Hostile Audit & Dynamic Shielding Physics.
+Updated for Program Phase 8.6 — Radiation Transport & Habitat Geometry Closure.
 
 Verifies cross-subsystem physical consistency, sequential state propagation, NEP trajectory tests,
 thermal/power state machines, launch logistics, centrifuge dynamics, mass conservation, vector kinematics,
@@ -10,7 +10,8 @@ Mars ISRU water/hydrogen conservation, electrolysis thermodynamics, liquefaction
 radiator thermal closure, surface timeline closure, machine-readable mission success predicates,
 Phase 8.1 explicit precursor/crewed safety gates & negative failure tests (Tests A through G),
 Phase 8.2–8.4 hostile surface power/thermal/payload margin & state-machine prerequisite tests,
-and Phase 8.5 hostile radiation shielding & propellant depletion tests.
+Phase 8.5 hostile radiation shielding & propellant depletion tests,
+and Phase 8.6 hostile radiation transport, geometry, shelter, and mass conservation tests.
 """
 
 import math
@@ -23,9 +24,13 @@ from shielding_estimator import (
     shielding_calculator,
     calculate_axial_propellant_column_density,
     calculate_directional_solid_angles,
+    calculate_habitat_geometry_statistics,
     compute_dynamic_dose_rate,
     calculate_gcr_dose_rate,
     calculate_reactor_dose_rate,
+    calculate_spe_event_dose,
+    verify_storm_shelter_subsystem,
+    verify_radiation_mass_budget,
 )
 from radiator_sizing import calculate_radiator_area
 from mission_digital_twin import MissionDigitalTwin, SpacecraftState, PrecursorDepotState
@@ -666,6 +671,71 @@ class TestSystemConsistency(unittest.TestCase):
 
         accumulated_unshielded = gcr_unshielded * 850.0
         self.assertGreater(accumulated_unshielded, 100.0)
+
+    # --- PHASE 8.6 HOSTILE ADVERSARIAL RADIATION & GEOMETRY CLOSURE TEST SUITE ---
+
+    def test_phase8_6_geometry_statistics_and_angular_coverage(self):
+        """Phase 8.6 Test: Verify habitat spatial geometry reconstruction statistics."""
+        stats = calculate_habitat_geometry_statistics()
+
+        self.assertEqual(stats["min_column_g_cm2"], 15.0)
+        self.assertGreater(stats["max_column_g_cm2"], 1000.0)  # Axial tanks line of sight
+        self.assertGreater(stats["mean_column_g_cm2"], 30.0)
+        self.assertGreater(stats["median_column_g_cm2"], 30.0)
+        self.assertGreater(stats["std_dev_g_cm2"], 50.0)
+
+        self.assertEqual(stats["frac_below_10_g_cm2"], 0.0)  # No direction below 10 g/cm^2
+        self.assertLess(stats["frac_below_20_g_cm2"], 0.05)  # Only thin forward endcap
+
+    def test_phase8_6_gcr_environment_envelopes(self):
+        """Phase 8.6 Test: Verify GCR dose rates under solar min, nominal, and solar max."""
+        dose_min = calculate_gcr_dose_rate(sigma_radial_g_cm2=31.4, sigma_axial_g_cm2=0.0, gcr_env="solar_minimum")
+        dose_nom = calculate_gcr_dose_rate(sigma_radial_g_cm2=31.4, sigma_axial_g_cm2=0.0, gcr_env="nominal")
+        dose_max = calculate_gcr_dose_rate(sigma_radial_g_cm2=31.4, sigma_axial_g_cm2=0.0, gcr_env="solar_maximum")
+
+        self.assertGreater(dose_min, dose_nom)
+        self.assertGreater(dose_nom, dose_max)
+
+    def test_phase8_6_spe_scenarios_and_response_delays(self):
+        """Phase 8.6 Test: Verify SPE dose across moderate, severe, and extreme events with shelter delays."""
+        dose_0min = calculate_spe_event_dose("severe", in_storm_shelter=True, response_time_min=0.0)
+        dose_10min = calculate_spe_event_dose("severe", in_storm_shelter=True, response_time_min=10.0)
+        dose_30min = calculate_spe_event_dose("severe", in_storm_shelter=True, response_time_min=30.0)
+        dose_120min = calculate_spe_event_dose("severe", in_storm_shelter=True, response_time_min=120.0)
+
+        self.assertLess(dose_0min, dose_10min)
+        self.assertLess(dose_10min, dose_30min)
+        self.assertLess(dose_30min, dose_120min)
+
+    def test_phase8_6_extreme_spe_and_delayed_shelter_failure(self):
+        """Phase 8.6 Test: Extreme design-basis SPE + 300-min delay causes acute SPE survivability failure."""
+        twin = MissionDigitalTwin()
+        twin.state.spe_scenario = "extreme_design_basis"
+        twin.state.crew_response_time_min = 300.0  # 5 hours delay
+
+        twin.run_precursor_mission()
+        res = twin.run_crewed_mission()
+
+        predicates = res["success_predicate_assessment"]["canonical_predicates"]
+        self.assertFalse(predicates["acute_spe_survivability"])
+        self.assertFalse(predicates["crew_survivability"])
+
+    def test_phase8_6_shelter_power_or_thermal_failure(self):
+        """Phase 8.6 Test: Shelter power or thermal failure fails storm_shelter_closure predicate."""
+        twin = MissionDigitalTwin()
+        twin.state.system_health["shelter_power_available"] = False
+
+        twin.run_precursor_mission()
+        res = twin.run_crewed_mission()
+
+        predicates = res["success_predicate_assessment"]["canonical_predicates"]
+        self.assertFalse(predicates["storm_shelter_closure"])
+
+    def test_phase8_6_radiation_mass_budget_audit_and_double_counting(self):
+        """Phase 8.6 Test: Verify 240 MT dry shielding budget reconciliation and reject double-counting."""
+        audit = verify_radiation_mass_budget()
+        self.assertTrue(audit["mass_conserved"])
+        self.assertEqual(audit["total_shield_mass_mt"], 240.0)
 
 
 if __name__ == "__main__":

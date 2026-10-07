@@ -30,12 +30,12 @@ Where:
 ## 3. Directional Radiation Protection & Dynamic Depletion Model
 
 ### A. Deep-Space Radiation Environment Baseline:
-* **Unshielded GCR Background Rate:** $\approx 1.8\text{ mSv/day}$ ($0.18\text{ cSv/day}$).
-* **Unshielded SPE Solar Flare Peak Rate:** Up to $10 - 50\text{ Sv/event}$ ($1,000 - 5,000\text{ cSv/event}$).
+* **Unshielded GCR Background Rate:** $\approx 1.8\text{ mSv/day}$ ($0.18\text{ cSv/day}$ nominal; $0.24$ solar min; $0.14$ solar max).
+* **Unshielded SPE Solar Flare Peak Rate:** Up to $10 - 50\text{ Sv/event}$ ($1,000 - 5,000\text{ cSv/event}$ free-space).
 
 ### B. Directional Solid Angle Weighting & Shielding Mass:
 * **Radial/Circumferential Habitat Shielding:** $20.0\text{ g/cm}^2$ water buffer tanks $+ 6.4\text{ g/cm}^2$ 316L SS pressure hull $+ 5.0\text{ g/cm}^2$ internal racks ($31.4\text{ g/cm}^2$ total ambient). Covers $99.28\%$ of $4\pi$ sky ($\Omega_{radial} = 12.48\text{ sr}$).
-* **Central SPE Storm Shelter Stack:** $52.25\text{ g/cm}^2$ column density ($4\text{m} \times 10\text{m}$ inner cylinder constructed of Steel + Water + High-Density Polyethylene + Steel). Attenuates SPE protons by $>98.5\%$ ($0.015$ factor).
+* **Central SPE Storm Shelter Stack:** $52.25\text{ g/cm}^2$ column density ($4\text{m} \times 10\text{m}$ inner cylinder constructed of Steel + Water + High-Density Polyethylene + Steel). Attenuates SPE protons by $>98.5\%$ ($0.015$ factor). Verified life support ($125.7\text{ m}^3$ volume, $5.24\text{ m}^3/\text{crew}$, $1.5\text{ kWe}$ power, $3.9\text{ kWth}$ thermal load, $48\text{h}$ certified stay).
 * **Axial Propellant Tank Buffer:** Subtends $\Omega_{axial} = 0.090\text{ sr}$ ($0.72\%$ of $4\pi$ sky). Provides dynamic axial reactor secondary attenuation when propellant is present ($\sigma_{axial} = 1,988\text{ g/cm}^2 \to 0\text{ g/cm}^2$).
 
 ### C. Mission Accumulated Crew Dose Results (Digital Twin Reconciled):

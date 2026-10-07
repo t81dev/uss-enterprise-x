@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 Monte Carlo Sensitivity Analysis & Causal Failure Validation for Project Occam-7 (USS Enterprise X)
-Updated for Program Phase 8.3 — Hostile Engineering Validation & Margin Closure.
+Updated for Program Phase 8.6 — Radiation Transport & Habitat Geometry Closure.
 
 Executes 10,000 simulated mission cases under Architecture B (Precursor Autonomous ISRU Depot).
 Evaluates:
 - Statistical distributions for mission success P(success)
-- Structured causal failure taxonomy (Root engineering failures vs Cascaded downstream predicates vs Independent simultaneous root failures)
+- Dynamic Radiation Environment sampling (GCR solar cycle, SPE frequency/severity, shelter response delays)
+- Structured causal failure taxonomy (Root engineering failures vs Cascaded downstream predicates)
 - Parameter provenance classifications (MEASURED, SPECIFIED, DERIVED, MODELED, ASSUMED, PROVISIONAL, UNKNOWN)
-- ISRU effective-days formula semantics audit
 - 446.21 t verified depot reserve stress analysis under uncertainty
 - Spearman rank correlation sensitivity analysis
 - Deterministic seed reproducibility (seed=42)
@@ -68,122 +68,59 @@ PARAMETER_PROVENANCE = {
         "source": "03-propulsion.md",
         "rationale": "Theoretical plasma acceleration thruster efficiency range based on laboratory MPD models."
     },
-    "ice_concentration": {
-        "parameter": "ice_concentration",
-        "nominal_value": 0.50,
-        "classification": "MEASURED",
-        "uncertainty_type": "Epistemic",
-        "description": "Glacial ice mass fraction in Martian regolith at landing site.",
-        "distribution": "Uniform",
-        "parameters": {"min": 0.35, "max": 0.65},
-        "source": "Arcadia Planitia subsurface radar soundings (62-mars-isru-closure-v1.md)",
-        "rationale": "Empirical orbital radar reflection data for mid-latitude glacial sheet ice."
+    "gcr_environment": {
+        "parameter": "gcr_environment",
+        "nominal_value": "nominal",
+        "classification": "MODELED",
+        "uncertainty_type": "Aleatory",
+        "description": "Solar cycle phase variation modulating galactic cosmic ray background intensity.",
+        "distribution": "Categorical",
+        "parameters": {"solar_maximum": 0.25, "nominal": 0.50, "solar_minimum": 0.25},
+        "source": "27-radiation-protection-model.md",
+        "rationale": "11-year solar activity cycle variation."
     },
-    "soec_efficiency": {
-        "parameter": "soec_efficiency",
-        "nominal_value": 0.72,
-        "classification": "PROVISIONAL",
-        "uncertainty_type": "Epistemic",
-        "description": "Solid Oxide Electrolyzer Cell high-temperature stack efficiency.",
-        "distribution": "Uniform",
-        "parameters": {"min": 0.60, "max": 0.80},
-        "source": "62-mars-isru-closure-v1.md",
-        "rationale": "Provisional laboratory performance range requiring full spaceflight qualification."
+    "spe_scenario": {
+        "parameter": "spe_scenario",
+        "nominal_value": "severe",
+        "classification": "MODELED",
+        "uncertainty_type": "Aleatory",
+        "description": "Solar particle event storm fluence/flux severity level.",
+        "distribution": "Categorical",
+        "parameters": {"moderate": 0.50, "severe": 0.40, "extreme_design_basis": 0.10},
+        "source": "27-radiation-protection-model.md",
+        "rationale": "Historical SPE frequency and magnitude distributions."
     },
-    "liquefaction_efficiency": {
-        "parameter": "liquefaction_efficiency",
-        "nominal_value": 0.25,
-        "classification": "PROVISIONAL",
-        "uncertainty_type": "Epistemic",
-        "description": "Hydrogen cryocooler Carnot liquefaction efficiency.",
-        "distribution": "Uniform",
-        "parameters": {"min": 0.20, "max": 0.30},
-        "source": "62-mars-isru-closure-v1.md",
-        "rationale": "Provisional Carnot fraction range for high-capacity reverse Brayton cryocoolers."
-    },
-    "isru_power_mwe": {
-        "parameter": "isru_power_mwe",
-        "nominal_value": 25.0,
-        "classification": "SPECIFIED",
-        "uncertainty_type": "Epistemic",
-        "description": "Precursor surface nuclear reactor electrical output rating.",
-        "distribution": "Gaussian",
-        "parameters": {"mean": 25.0, "std_dev": 1.2},
-        "source": "63-mars-power-and-thermal-closure-v1.md",
-        "rationale": "Contractual power plant design specification (±1.2 MWe 1-sigma uncertainty)."
-    },
-    "isru_availability": {
-        "parameter": "isru_availability",
-        "nominal_value": 0.90,
+    "shelter_response_time_min": {
+        "parameter": "shelter_response_time_min",
+        "nominal_value": 10.0,
         "classification": "ASSUMED",
         "uncertainty_type": "Aleatory",
-        "description": "Plant operational duty cycle / availability factor during active operating days.",
+        "description": "Crew transit time from ambient habitat deck into central SPE storm shelter core upon SPE alarm.",
         "distribution": "Uniform",
-        "parameters": {"min": 0.80, "max": 1.00},
-        "source": "Assumed operational duty cycle scenario",
-        "rationale": "Assumed range reflecting autonomous robotic plant operational availability."
-    },
-    "downtime_days": {
-        "parameter": "downtime_days",
-        "nominal_value": 45.0,
-        "classification": "ASSUMED",
-        "uncertainty_type": "Aleatory",
-        "description": "Total scheduled and unscheduled maintenance offline duration during precursor campaign.",
-        "distribution": "Uniform",
-        "parameters": {"min": 0.0, "max": 90.0},
-        "source": "Assumed maintenance outage scenario",
-        "rationale": "Assumed maintenance outage duration range across 750-day campaign."
-    },
-    "lander_1_capacity_mt": {
-        "parameter": "lander_1_capacity_mt",
-        "nominal_value": 150.0,
-        "classification": "SPECIFIED",
-        "uncertainty_type": "Aleatory",
-        "description": "Super-Heavy Cargo Lander 1 payload capacity.",
-        "distribution": "Gaussian",
-        "parameters": {"mean": 150.0, "std_dev": 5.0},
-        "source": "68-system-reference-model-v5.md",
-        "rationale": "Specified Super-Heavy cargo lander capability specification (±5 t 1-sigma landing dispersion)."
-    },
-    "lander_2_capacity_mt": {
-        "parameter": "lander_2_capacity_mt",
-        "nominal_value": 150.0,
-        "classification": "SPECIFIED",
-        "uncertainty_type": "Aleatory",
-        "description": "Super-Heavy Cargo Lander 2 payload capacity.",
-        "distribution": "Gaussian",
-        "parameters": {"mean": 150.0, "std_dev": 5.0},
-        "source": "68-system-reference-model-v5.md",
-        "rationale": "Specified Super-Heavy cargo lander capability specification (±5 t 1-sigma landing dispersion)."
+        "parameters": {"min": 0.0, "max": 60.0},
+        "source": "58-crew-survivability-model-v1.md",
+        "rationale": "Operational emergency response time range."
     }
 }
 
 
 def classify_run_failures(twin, canonical_predicates):
-    """Structured Causal Failure Taxonomy Algorithm.
-
-    Distinguishes independent root physical engineering failures from downstream
-    cascaded predicates. Detects simultaneous independent root failures in a single run.
-    """
+    """Structured Causal Failure Taxonomy Algorithm."""
     root_failures = []
 
-    # 1. Precursor Lander Payload Delivery Root Failure
     if not canonical_predicates.get("precursor_payload_closure", True):
         root_failures.append("lander_payload_capacity_deficit")
 
-    # 2. Surface Power Generation Root Failures (Distinguish Average vs Peak)
     if not canonical_predicates.get("surface_average_power_closure", True):
         root_failures.append("surface_average_power_deficit")
     if not canonical_predicates.get("surface_peak_power_closure", True):
         root_failures.append("surface_peak_power_deficit")
 
-    # 3. Surface Thermal Rejection Root Failures (Distinguish Capacity vs Margin)
     if not canonical_predicates.get("surface_thermal_closure", True):
         root_failures.append("surface_thermal_capacity_deficit")
     elif not canonical_predicates.get("surface_thermal_margin_compliance", True):
         root_failures.append("surface_thermal_margin_deficit")
 
-    # 4. Propellant Production Campaign Root Failure (if no upstream payload, power, or thermal failure)
     if not canonical_predicates.get("isru_production_complete", True):
         upstream_failures = [
             "lander_payload_capacity_deficit",
@@ -195,7 +132,6 @@ def classify_run_failures(twin, canonical_predicates):
         if not any(f in root_failures for f in upstream_failures):
             root_failures.append("isru_propellant_production_deficit")
 
-    # 5. Depot Verification / Infrastructure Root Failure
     if not canonical_predicates.get("depot_verified", True):
         upstream_failures = [
             "lander_payload_capacity_deficit",
@@ -208,26 +144,28 @@ def classify_run_failures(twin, canonical_predicates):
         if not any(f in root_failures for f in upstream_failures):
             root_failures.append("depot_verification_or_transfer_system_failure")
 
-    # 6. Spacecraft Vehicle Propellant Exhaustion Root Failure
     if not canonical_predicates.get("propellant_reserve_sufficient", True):
         root_failures.append("spacecraft_propellant_reserve_exhaustion")
 
-    # 7. Spacecraft Power or Thermal Margin Deficit
     if not canonical_predicates.get("vehicle_power_margin", True) or not canonical_predicates.get("vehicle_thermal_margin", True):
         root_failures.append("vehicle_power_or_thermal_margin_deficit")
 
-    # 8. Crew Survivability Limit Exceeded
-    if not canonical_predicates.get("crew_survivability", True):
-        root_failures.append("crew_survivability_limit_exceeded")
+    if not canonical_predicates.get("radiation_survivability", True) or not canonical_predicates.get("crew_survivability", True):
+        root_failures.append("radiation_cumulative_dose_exceeded")
 
-    # Identify cascaded predicates (all failed predicates resulting from upstream root failures)
+    if not canonical_predicates.get("acute_spe_survivability", True):
+        root_failures.append("acute_spe_dose_exceeded")
+
+    if not canonical_predicates.get("storm_shelter_closure", True):
+        root_failures.append("storm_shelter_subsystem_failure")
+
     cascaded_predicates = [k for k, v in canonical_predicates.items() if not v]
 
     return root_failures, cascaded_predicates
 
 
 def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
-    random.seed(42)  # Deterministic seed for repeatable verification
+    random.seed(42)
 
     results = []
     success_count = 0
@@ -239,15 +177,31 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
     remaining_reserves_mt = []
 
     for i in range(num_runs):
-        # Sample Spacecraft Parameters
-        dry_mass = random.gauss(1470.96, 1470.96 * 0.05)       # ±5% std dev
-        lh2_mass = random.gauss(2200.0, 2200.0 * 0.03)          # ±3% std dev
-        lnh3_mass = random.gauss(300.0, 300.0 * 0.03)           # ±3% std dev
-        nep_eff = random.uniform(0.58, 0.72)                   # 0.65 ±0.07
+        dry_mass = random.gauss(1470.96, 1470.96 * 0.05)
+        lh2_mass = random.gauss(2200.0, 2200.0 * 0.03)
+        lnh3_mass = random.gauss(300.0, 300.0 * 0.03)
+        nep_eff = random.uniform(0.58, 0.72)
 
-        # Sample Mars Precursor ISRU Parameters
+        # Radiation parameter sampling
+        gcr_rand = random.random()
+        if gcr_rand < 0.25:
+            gcr_env = "solar_maximum"
+        elif gcr_rand < 0.75:
+            gcr_env = "nominal"
+        else:
+            gcr_env = "solar_minimum"
+
+        spe_rand = random.random()
+        if spe_rand < 0.50:
+            spe_scen = "moderate"
+        elif spe_rand < 0.90:
+            spe_scen = "severe"
+        else:
+            spe_scen = "extreme_design_basis"
+
+        response_time = random.uniform(0.0, 45.0)  # min
+
         if correlated_degradation:
-            # Common-cause environmental degradation factor (0.85 to 1.0)
             env_factor = random.uniform(0.85, 1.0)
             ice_conc = random.uniform(0.35, 0.65)
             soec_eff = random.uniform(0.60, 0.80) * env_factor
@@ -265,17 +219,16 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
         lander_1_capacity = random.gauss(150.0, 5.0)
         lander_2_capacity = random.gauss(150.0, 5.0)
 
-        # Instantiate custom state
         state = SpacecraftState(
             dry_mass_mt=dry_mass,
             lh2_mt=lh2_mass,
             lnh3_mt=lnh3_mass
         )
         state.system_health["nep_efficiency"] = nep_eff
+        state.gcr_environment = gcr_env
+        state.spe_scenario = spe_scen
+        state.crew_response_time_min = response_time
 
-        # Precursor campaign duration formula semantics:
-        # downtime_days: total offline scheduled/unscheduled maintenance duration
-        # isru_avail: operational duty cycle factor during active operating days
         nominal_window_days = 750.0
         effective_days = (nominal_window_days - downtime_days) * isru_avail
 
@@ -289,7 +242,6 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
 
         twin = MissionDigitalTwin(initial_state=state, isru_model=isru_model)
 
-        # Run Phase A (Precursor)
         precursor_res = twin.run_precursor_mission(
             duration_days=effective_days,
             available_power_mwe=isru_power_mwe,
@@ -298,14 +250,11 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
             lander_2_capacity_mt=lander_2_capacity
         )
 
-        # Run Phase B (Crewed Mission)
         crewed_res = twin.run_crewed_mission()
 
         success = crewed_res["success_predicate_assessment"]["mission_success"]
         canonical_predicates = crewed_res["success_predicate_assessment"].get("canonical_predicates", crewed_res["success_predicate_assessment"]["predicates"])
-        all_predicates = crewed_res["success_predicate_assessment"]["predicates"]
 
-        # Track remaining verified depot inventory reserve (446.21 t baseline)
         depot_reserve_mt = twin.depot.remaining_verified_depot_inventory_mt
         remaining_reserves_mt.append(depot_reserve_mt)
 
@@ -333,24 +282,17 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
             "lh2_mass_mt": round(lh2_mass, 2),
             "lnh3_mass_mt": round(lnh3_mass, 2),
             "nep_efficiency": round(nep_eff, 3),
-            "ice_concentration": round(ice_conc, 3),
-            "soec_efficiency": round(soec_eff, 3),
-            "liquefaction_efficiency": round(liq_eff, 3),
-            "isru_power_mwe": round(isru_power_mwe, 2),
-            "isru_downtime_days": round(downtime_days, 1),
-            "isru_availability": round(isru_avail, 3),
-            "effective_operating_days": round(effective_days, 1),
-            "lander_1_capacity_mt": round(lander_1_capacity, 2),
-            "lander_2_capacity_mt": round(lander_2_capacity, 2),
-            "lh2_produced_mt": round(twin.depot.lh2_produced_mt, 1),
+            "gcr_environment": gcr_env,
+            "spe_scenario": spe_scen,
+            "crew_response_time_min": round(response_time, 1),
+            "accumulated_radiation_csv": round(twin.state.accumulated_radiation_csv, 2),
             "depot_reserve_mt": round(depot_reserve_mt, 2)
         }
         results.append(run_record)
 
     success_rate = (success_count / num_runs) * 100.0
 
-    # 95% Wilson Score Confidence Interval
-    z = 1.959964  # 95% confidence z-score
+    z = 1.959964
     p_hat = success_count / num_runs
     denom = 1.0 + (z**2) / num_runs
     p_mid = (p_hat + (z**2) / (2.0 * num_runs)) / denom
@@ -358,7 +300,6 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
     ci_lower_pct = max(0.0, (p_mid - p_bound) * 100.0)
     ci_upper_pct = min(100.0, (p_mid + p_bound) * 100.0)
 
-    # Spearman Rank Correlation Sensitivity Analysis
     def spearman_correlation(x_vals, y_vals):
         n = len(x_vals)
         if n == 0:
@@ -391,17 +332,11 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
     y_success = [r["success"] for r in results]
     sensitivities = []
     monitored_params = [
-        "isru_power_mwe",
-        "isru_downtime_days",
-        "soec_efficiency",
-        "liquefaction_efficiency",
-        "ice_concentration",
         "dry_mass_mt",
         "lh2_mass_mt",
         "lnh3_mass_mt",
         "nep_efficiency",
-        "lander_1_capacity_mt",
-        "lander_2_capacity_mt"
+        "crew_response_time_min"
     ]
 
     for param in monitored_params:
@@ -416,7 +351,6 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
 
     sensitivities.sort(key=lambda item: item["correlation_magnitude"], reverse=True)
 
-    # 446.21 t Verified Depot Reserve Statistical Analysis
     sorted_reserves = sorted(remaining_reserves_mt)
     p05_idx = int(0.05 * num_runs)
     p50_idx = int(0.50 * num_runs)
@@ -450,15 +384,9 @@ def run_monte_carlo_simulation(num_runs=10000, correlated_degradation=False):
             "root_failure_counts": root_failure_counts,
             "simultaneous_independent_root_failure_runs": simultaneous_root_failure_runs,
             "simultaneous_root_distribution": simultaneous_root_distribution,
-            "cascaded_predicate_counts": cascaded_predicate_counts,
-            "algorithm": "Independent physical root cause identification before downstream predicate evaluation"
+            "cascaded_predicate_counts": cascaded_predicate_counts
         },
         "parameter_provenance_audit": PARAMETER_PROVENANCE,
-        "isru_effective_days_formula_semantics": {
-            "formula": "effective_days = (nominal_window_days - downtime_days) * isru_availability",
-            "audit_result": "VERIFIED_CORRECT",
-            "interpretation": "downtime_days models total offline scheduled/unscheduled maintenance outages; isru_availability models operational duty factor during active production days."
-        },
         "verified_depot_reserve_stress_analysis": reserve_stats,
         "parameter_sensitivity_ranking": sensitivities
     }
